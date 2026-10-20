@@ -2,14 +2,14 @@
   <summary>Methodology</summary>
   <h4>1. Data</h4>
   <p>Official Elections Canada results by riding (2015, 2019, 2021 and 2025), the official transposition of
-  the 2021 results onto the 2023 map, national polls since 2015 and their regional breakdowns since
-  December 2019 (Atlantic, Quebec, Ontario, Manitoba and Saskatchewan, Alberta, British Columbia). Riding
+  the 2021 results onto the 2023 map, national polls since 2015 and their regional breakdowns, published by the polling firms, since
+  August 2021 (Atlantic, Quebec, Ontario, Manitoba and Saskatchewan, Alberta, British Columbia). Riding
   boundaries of the 2023 Representation Order (Elections Canada), simplified for display.</p>
   <h4>2. Regional targets</h4>
   <p>For each region, the breakdowns published since the 2025 election are pooled with weight
   n·exp(−age/τ), age being measured on a clock where one campaign day counts as D days: τ = 120 days
-  and D = 16 are estimated by one-step-ahead forecasting of the region-national gap of each of the 717
-  broken-down polls. The targets are corrected for the mean regional bias of the eve polls of 2021 and
+  and D = 16 are those that minimise the seat error of the median scenario at the 2021 and 2025
+  elections among the combinations tried, on the 327 broken-down polls. The targets are corrected for the mean regional bias of the eve polls of 2021 and
   2025, multiplied party by party by a shrinkage factor m²/(m² + s²/k), where m and s² are the mean and
   variance of the national gap between eve polls and results over the last k = 3 elections.</p>
   <h4>3. Ridings</h4>
@@ -22,8 +22,9 @@
   <p>Each draw combines a national shock and a regional shock in centred log-ratios (per-party standard
   deviations estimated on the errors of eve polls) and, for each riding, a local deviation drawn from the
   errors of the three transitions, centred by region. On the eve of the 2021 and 2025 elections, each
-  evaluated with parameters estimated without it, 11 of the 12 per-party 90% seat intervals contain the
-  result; the absolute seat error of the median scenario (medoid) is 36 and 14.</p>
+  evaluated with parameters estimated without it, all 12 per-party 90% seat intervals contain the
+  result; the absolute seat error is 32 and 72 for the point
+  projection, and 44 and 58 for the median scenario (medoid).</p>
   <h4>5. Government scenarios and certainty</h4>
   <p>Each draw is assigned to a single government scenario: majority when the first party reaches 172
   seats, minority otherwise. For a minority government, the parties whose seats, added to those of the
