@@ -8,7 +8,7 @@ import { PARTIES, repoData, LANG, LOCALE, partyLabel, formatPercent } from "./pa
 
 const T = {
   fr: {
-    name: { qc: "Québec", bc: "Colombie-Britannique", ca: "Canada" }, short: { bc: "C.-B." }, party: "Parti", seats: "Sièges", interval: "Intervalle à 90 %",
+    name: { qc: "Québec", bc: "Colombie-Britannique", ca: "Canada" }, short: { bc: "C.-B." }, party: "Parti", forecast: (a) => (a ? `Prévision ${a}` : "Prévision"), interval: "Intervalle à 90 %",
     majority: (n) => `Majorité : ${n} sièges`, seatsOf: (p, n) => `${p} : ${n} sièges`,
     house: (t, n) => `${t} sièges · majorité : ${n}`,
     first: (p) => `${p} avec le plus de sièges`, majorityGov: "Gouvernement majoritaire",
@@ -16,7 +16,7 @@ const T = {
     colon: " :",
   },
   en: {
-    name: { qc: "Quebec", bc: "British Columbia", ca: "Canada" }, short: { bc: "B.C." }, party: "Party", seats: "Seats", interval: "90% interval",
+    name: { qc: "Quebec", bc: "British Columbia", ca: "Canada" }, short: { bc: "B.C." }, party: "Party", forecast: (a) => (a ? `${a} forecast` : "Forecast"), interval: "90% interval",
     majority: (n) => `Majority: ${n} seats`, seatsOf: (p, n) => `${p}: ${n} seats`,
     house: (t, n) => `${t} seats · majority: ${n}`,
     first: (p) => `${p} with the most seats`, majorityGov: "Majority government",
@@ -127,7 +127,7 @@ function summarise(election, proj) {
   body.className = "tile-body";
   const table = document.createElement("table");
   table.className = "seat-table";
-  table.innerHTML = `<thead><tr><th>${T.party}</th><th>${T.seats}</th><th>${T.interval}</th></tr></thead>`;
+  table.innerHTML = `<thead><tr><th>${T.party}</th><th>${T.forecast(proj.meta?.electionDate?.slice(0, 4))}</th><th>${T.interval}</th></tr></thead>`;
   const tbody = document.createElement("tbody");
   for (const p of order.slice(0, 5)) {
     const d = proj.seatDistributions[p];
