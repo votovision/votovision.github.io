@@ -14,7 +14,7 @@
 
     Ton vote ne dépasse pas ta circonscription (enfin, presque, on y reviendra). La plupart des candidat.es sont associé.es à un parti, et le parti le plus représenté forme le gouvernement. Un parti, c'est une organisation privée autorisée par le Directeur général des élections du Québec. Tu formes un parti, il y a des règles sur la manière dont tu ramasses l'argent et comment tu le dépenses. Une fois les résultats officialisés, le lieutenant-gouverneur, représentant de sa majesté, invite à former le gouvernement la personne qui peut obtenir la confiance de l'Assemblée nationale. C'est normalement le leader du parti qui a le plus d'élu.es (le *caucus* gagnant). Les membres du parti ont choisi cette personne, pas l'électorat. Elle reste première ministre tant que l'Assemblée lui garde sa confiance (avec un gouvernement minoritaire, il lui faut l'appui d'autres partis), et choisit ses ministres parmi elleux (en pratique, parmi sa *gang*). Normalement, on a une idée claire de la personne qui sera choisie. Mais non, tu ne choisis pas qui sera premier ministre. Tu choisis juste la personne qui représentera ta circonscription : ton vote s'arrête là.
 
-    Un parti peut donc [avoir 13 % des votes valides](https://www.electionsquebec.qc.ca/resultats-et-statistiques/), sans avoir de député, CAQ 0 avec 13 %. Il peut aussi passer sur la fesse un peu partout, avoir 28 % du vote valide, et former le gouvernement avec 59 député.es sur les 127 postes disponibles (les *sièges*) : c'est le cas du PQ en 2026. Il peut aussi passer proche partout et former une grande majorité de 72 % des *sièges* avec 41 % du vote : c'était le cas de la CAQ en 2022.
+    Un parti peut donc [avoir 13 % des votes valides](https://www.electionsquebec.qc.ca/resultats-et-statistiques/), sans avoir de député, CAQ 0 avec 13 %. Il peut aussi passer sur la fesse un peu partout, avoir 28 % du vote valide, et former le gouvernement avec 60 député.es sur les 127 postes disponibles (les *sièges*) : c'est le cas du PQ en 2026. Il peut aussi passer proche partout et former une grande majorité de 72 % des *sièges* avec 41 % du vote : c'était le cas de la CAQ en 2022.
 
     Ce n'est pas tout le monde qui a le droit de vote, c'est pas tout le monde parmi les personnes qui y ont droit qui votent, et (résultat du mode de scrutin) les personnes qui votent ne sont pas nécessairement bien représentées.
   </script>
@@ -27,17 +27,17 @@
     // constantes
     const TOTAL_SIEGES = 127;
     const INSCRITS = 6495984;
-    const VOTES_EXERCES = 4345857;
-    const VOTES_VALIDES = 4282551;
+    const VOTES_EXERCES = 4345868;
+    const VOTES_VALIDES = 4282420;
     const POPULATION = 9030000; // ISQ, population au 1er janvier 2026 (Le bilan démographique du Québec, édition 2026)
 
     // résultats
     const partis = [
-      { parti: "PQ",  votesN: 1199925, sieges: 59, couleur: "#2B50C8" },
-      { parti: "PLQ", votesN: 1037051, sieges: 40, couleur: "#E01020" },
-      { parti: "PCQ", votesN: 885164,  sieges: 19, couleur: "#10275A" },
-      { parti: "CAQ", votesN: 571520,  sieges: 0,  couleur: "#6EC9F5" },
-      { parti: "QS",  votesN: 532176,  sieges: 9,  couleur: "#F28C28" },
+      { parti: "PQ",  votesN: 1199895, sieges: 60, couleur: "#2B50C8" },
+      { parti: "PLQ", votesN: 1037008, sieges: 39, couleur: "#E01020" },
+      { parti: "PCQ", votesN: 885122,  sieges: 19, couleur: "#10275A" },
+      { parti: "CAQ", votesN: 571513,  sieges: 0,  couleur: "#6EC9F5" },
+      { parti: "QS",  votesN: 532169,  sieges: 9,  couleur: "#F28C28" },
     ];
 
     // --- palette et typographie du graphique (hors couleurs de partis) ---
@@ -423,12 +423,12 @@
     svgF.node()
   </script>
   <script id="11" type="text/markdown">
-    À la proportionnelle pure, le PQ aurait 36 sièges plutôt que 59, et [48 en mode *Pro-Mix*](https://www.lenouvelliste.ca/chroniques/helene-buzzetti/2026/10/09/pour-en-finir-avec-la-reforme-electorale-Q5RHI6WFGRCP5DS46QPM3TO4EY/) (qui aurait 129 sièges, donc un seuil de majorité de 65 sièges). Un gouvernement majoritaire de coalition 48 (PQ) + 23 (PCQ) = 71 (avec opposition PLQ), aurait été possible. Aujourd'hui, le PQ pourrait coaliser avec le PCQ ou QS (ou miser sur 5 transfuges) pour obtenir une majorité.
+    À la proportionnelle pure, le PQ aurait 36 sièges plutôt que 60, et [48 en mode *Pro-Mix*](https://www.lenouvelliste.ca/chroniques/helene-buzzetti/2026/10/09/pour-en-finir-avec-la-reforme-electorale-Q5RHI6WFGRCP5DS46QPM3TO4EY/) (qui aurait 129 sièges, donc un seuil de majorité de 65 sièges). Un gouvernement majoritaire de coalition 48 (PQ) + 23 (PCQ) = 71 (avec opposition PLQ), aurait été possible. Aujourd'hui, le PQ pourrait coaliser avec le PCQ ou QS (ou miser sur 4 transfuges) pour obtenir une majorité.
   </script>
   <script id="12" type="text/markdown">
     ## Ton vote change-t-il quelque chose ?
 
-    Le mode de scrutin change aussi fondamentalement l'importance d'un vote. Aujourd'hui, un vote ne change le résultat d'une circonscription que s'il brise une égalité. Depuis 1970, l'élection la plus serrée a été celle de Hull, en 1976, gagnée par 2 voix. En 2026, Vachon a été gagnée par 10 voix.
+    Le mode de scrutin change aussi fondamentalement l'importance d'un vote. Aujourd'hui, un vote ne change le résultat d'une circonscription que s'il brise une égalité. Depuis 1970, l'élection la plus serrée a été celle de Hull, en 1976, gagnée par 2 voix. En 2026, Vachon a été gagnée par 3 voix, au terme d'un dépouillement judiciaire.
   </script>
   <script id="13" type="module">
     // Écart entre les deux premiers dans chaque circonscription, de 1970 à 2026.

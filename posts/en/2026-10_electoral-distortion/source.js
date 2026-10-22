@@ -16,7 +16,7 @@
 //
 // Your vote doesn't go beyond your riding (well, almost; we will come back to that). Most candidates are tied to a party, and the party with the most members forms the government. A party is a private organization authorized by the Chief Electoral Officer of Quebec. You form a party, there are rules on how you raise money and how you spend it. Once the results are official, the lieutenant governor, the King's representative, invites the person who can win the confidence of the National Assembly to form the government. That is normally the leader of the party with the most members elected (the winning *caucus*). The party's members chose that person, not the voters. They stay premier as long as the Assembly keeps its confidence in them (with a minority government, they need the support of other parties), and pick their ministers among the members (in practice, among their gang). Normally, we have a clear idea of who will be chosen. But no, you do not choose who will be premier. You only choose the person who will represent your riding: your vote stops there.
 //
-// A party can therefore [get 13% of the valid votes](https://www.electionsquebec.qc.ca/resultats-et-statistiques/) without electing a single member: CAQ 0 with 13%. It can also squeak through just about everywhere, get 28% of the valid vote, and form the government with 59 members out of the 127 available positions (the *seats*): that is the PQ in 2026. It can also come close everywhere and form a large majority of 72% of the *seats* with 41% of the vote: that was the CAQ in 2022.
+// A party can therefore [get 13% of the valid votes](https://www.electionsquebec.qc.ca/resultats-et-statistiques/) without electing a single member: CAQ 0 with 13%. It can also squeak through just about everywhere, get 28% of the valid vote, and form the government with 60 members out of the 127 available positions (the *seats*): that is the PQ in 2026. It can also come close everywhere and form a large majority of 72% of the *seats* with 41% of the vote: that was the CAQ in 2022.
 //
 // Not everyone has the right to vote, not everyone who has it votes, and (a result of the electoral system) those who vote are not necessarily well represented.
 
@@ -29,17 +29,17 @@ const sankeyMod = await import("https://cdn.jsdelivr.net/npm/d3-sankey@0.12/+esm
 // constants
 const TOTAL_SIEGES = 127;
 const INSCRITS = 6495984;
-const VOTES_EXERCES = 4345857;
-const VOTES_VALIDES = 4282551;
+const VOTES_EXERCES = 4345868;
+const VOTES_VALIDES = 4282420;
 const POPULATION = 9030000; // ISQ, population on 1 January 2026 (Le bilan démographique du Québec, 2026 edition)
 
 // results
 const partis = [
-  { parti: "PQ",  votesN: 1199925, sieges: 59, couleur: "#2B50C8" },
-  { parti: "QLP", votesN: 1037051, sieges: 40, couleur: "#E01020" },
-  { parti: "CPQ", votesN: 885164,  sieges: 19, couleur: "#10275A" },
-  { parti: "CAQ", votesN: 571520,  sieges: 0,  couleur: "#6EC9F5" },
-  { parti: "QS",  votesN: 532176,  sieges: 9,  couleur: "#F28C28" },
+  { parti: "PQ",  votesN: 1199895, sieges: 60, couleur: "#2B50C8" },
+  { parti: "QLP", votesN: 1037008, sieges: 39, couleur: "#E01020" },
+  { parti: "CPQ", votesN: 885122,  sieges: 19, couleur: "#10275A" },
+  { parti: "CAQ", votesN: 571513,  sieges: 0,  couleur: "#6EC9F5" },
+  { parti: "QS",  votesN: 532169,  sieges: 9,  couleur: "#F28C28" },
 ];
 
 // --- palette and typography of the chart (party colours aside) ---
@@ -426,12 +426,12 @@ gLegende.selectAll("text").data(LEGENDE).join("text").attr("x", (d) => d[2] + 8)
 svgF.node()
 
 // %% [markdown]
-// Under pure proportional representation, the PQ would have 36 seats rather than 59, and [48 under *Pro-Mix*](https://www.lenouvelliste.ca/chroniques/helene-buzzetti/2026/10/09/pour-en-finir-avec-la-reforme-electorale-Q5RHI6WFGRCP5DS46QPM3TO4EY/) (which would have 129 seats, hence a majority threshold of 65 seats). A majority coalition government, 48 (PQ) + 23 (CPQ) = 71 (with the QLP in opposition), would have been possible. Today, the PQ could join forces with the CPQ or QS (or count on 5 floor-crossers) to reach a majority.
+// Under pure proportional representation, the PQ would have 36 seats rather than 60, and [48 under *Pro-Mix*](https://www.lenouvelliste.ca/chroniques/helene-buzzetti/2026/10/09/pour-en-finir-avec-la-reforme-electorale-Q5RHI6WFGRCP5DS46QPM3TO4EY/) (which would have 129 seats, hence a majority threshold of 65 seats). A majority coalition government, 48 (PQ) + 23 (CPQ) = 71 (with the QLP in opposition), would have been possible. Today, the PQ could join forces with the CPQ or QS (or count on 4 floor-crossers) to reach a majority.
 
 // %% [markdown]
 // ## Does your vote change anything?
 //
-// The electoral system also fundamentally changes the weight of a vote. Today, a vote changes a riding's result only if it breaks a tie. Since 1970, the closest race was Hull in 1976, won by 2 votes. In 2026, Vachon was won by 10 votes.
+// The electoral system also fundamentally changes the weight of a vote. Today, a vote changes a riding's result only if it breaks a tie. Since 1970, the closest race was Hull in 1976, won by 2 votes. In 2026, Vachon was won by 3 votes, after a judicial recount.
 
 // %% [javascript] #collapse-cell
 // Margin between the top two in each riding, from 1970 to 2026.
