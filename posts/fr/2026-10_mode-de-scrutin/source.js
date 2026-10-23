@@ -187,7 +187,7 @@ svgSankey.attr("viewBox", [0, 0, X_SIEGES + 130, Math.max(480, yS + 10)]);
 svgSankey.node();
 
 // %% [markdown]
-// *Sources du graphique : population au 1er janvier 2026, [Institut de la statistique du Québec](https://statistique.quebec.ca/fr/fichier/bilan-demographique-quebec-edition-2026.pdf) ; électeurs inscrits et votes, [Élections Québec](https://www.electionsquebec.qc.ca/resultats-et-statistiques/).*
+// *Sources des données du graphique : population au 1er janvier 2026, [Institut de la statistique du Québec](https://statistique.quebec.ca/fr/fichier/bilan-demographique-quebec-edition-2026.pdf) ; électeurs inscrits et votes, [Élections Québec](https://www.electionsquebec.qc.ca/resultats-et-statistiques/).*
 //
 // ## Voter dans le vide
 //

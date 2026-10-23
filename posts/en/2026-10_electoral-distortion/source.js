@@ -187,7 +187,7 @@ svgSankey.attr("viewBox", [0, 0, X_SIEGES + 130, Math.max(480, yS + 10)]);
 svgSankey.node();
 
 // %% [markdown]
-// *Chart sources: population on 1 January 2026, [Institut de la statistique du Québec](https://statistique.quebec.ca/fr/fichier/bilan-demographique-quebec-edition-2026.pdf); registered electors and votes, [Élections Québec](https://www.electionsquebec.qc.ca/resultats-et-statistiques/).*
+// *Chart data sources: population on 1 January 2026, [Institut de la statistique du Québec](https://statistique.quebec.ca/fr/fichier/bilan-demographique-quebec-edition-2026.pdf); registered electors and votes, [Élections Québec](https://www.electionsquebec.qc.ca/resultats-et-statistiques/).*
 //
 // ## Oblivion voting
 //
