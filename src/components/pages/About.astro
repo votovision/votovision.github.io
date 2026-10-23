@@ -25,9 +25,12 @@ const { lang } = Astro.props;
     <p>Les calculs (transformations compositionnelles, processus gaussiens, simulation) sont effectués avec
     la suite <a href="https://suite.tangent.to">tangent/suite</a>.</p>
 
+    <h2>Contact</h2>
+    <p>Par courriel : <a class="courriel" data-u="votovision" data-d="tutamail.com">votovision (arobase) tutamail.com</a>.</p>
+
     <h2>Signaler une erreur</h2>
     <p>Les erreurs, dans les données comme dans le code, se signalent par une demande (« issue ») sur le dépôt
-    concerné.</p>
+    concerné, ou par courriel.</p>
 
     <h2>Citer</h2>
     <p>Votovision, prévisions électorales, https://votovision.github.io, avec la date de consultation.</p>
@@ -54,11 +57,24 @@ const { lang } = Astro.props;
     <p>Computations (compositional transformations, Gaussian processes, simulation) are carried out with
     the <a href="https://suite.tangent.to">tangent/suite</a>.</p>
 
+    <h2>Contact</h2>
+    <p>By email: <a class="courriel" data-u="votovision" data-d="tutamail.com">votovision (at) tutamail.com</a>.</p>
+
     <h2>Reporting an error</h2>
-    <p>Errors in the data or the code can be reported by opening an issue on the relevant repository.</p>
+    <p>Errors in the data or the code can be reported by opening an issue on the relevant repository, or by
+    email.</p>
 
     <h2>Citation</h2>
     <p>Votovision, election forecasts, https://votovision.github.io, with the date of access.</p>
   </article>
 </Base>
 )}
+
+<script>
+  // Adresse assemblée dans le navigateur, hors de portée des robots qui ramassent les courriels.
+  for (const a of document.querySelectorAll<HTMLAnchorElement>("a.courriel")) {
+    const adresse = `${a.dataset.u}@${a.dataset.d}`;
+    a.href = `mailto:${adresse}`;
+    a.textContent = adresse;
+  }
+</script>
