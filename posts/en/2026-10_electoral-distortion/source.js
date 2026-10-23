@@ -568,6 +568,6 @@ elus2026.map((d) => ({
 //
 // [3] The chance that one vote decides the winner in 2030 is computed from the forecast margin between the top two and the uncertainty on that margin, derived from the probability of winning. When the forecast is nearly certain, the typical uncertainty of the other ridings is used.
 //
-// [4] Under proportional representation, 4,282,551 valid votes for 127 seats give one seat per about 34,000 votes. One vote therefore changes one seat about once in 34,000.
+// [4] Under proportional representation, 4,282,420 valid votes for 127 seats give one seat per about 34,000 votes. One vote therefore changes one seat about once in 34,000.
 
 // %% [javascript]
