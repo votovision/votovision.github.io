@@ -126,3 +126,15 @@ ul.post-list a { font-weight: 600; text-decoration: none; }
 ul.post-list a:hover { text-decoration: underline; }
 ul.post-list .date { display: block; font-size: 0.85rem; color: var(--muted); }
 @media (max-width: 600px) { ol.polls .firm { white-space: normal; } }
+/* Phones and enlarged text: tighter tile, smaller table. */
+@media (max-width: 400px) {
+  .tile { padding: 1.2rem 1rem 1.1rem; }
+  table.seat-table { font-size: 0.92rem; }
+  table.seat-table th { font-size: 0.75rem; }
+  table.seat-table th, table.seat-table td { padding: 0.3rem 0.25rem; }
+  table.seat-table td.n { white-space: nowrap; }
+  /* Latest polls: the jurisdiction moves above the firm. */
+  ol.polls li { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; }
+  ol.polls .jurisdiction { grid-row: auto; grid-column: 1 / 3; font-size: 0.85rem; }
+  ol.polls .date { grid-column: 1 / 3; }
+}
