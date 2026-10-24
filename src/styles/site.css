@@ -94,11 +94,12 @@ a.tile.election.live:hover { background: #fafaf9; }
 .seat-bar .threshold { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 1.5px dashed var(--heading); }
 .threshold-legend { font-size: 0.85rem !important; color: var(--muted); margin: 0.45rem 0 0; }
 
-.tile .tile-body { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+.tile .tile-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 table.seat-table { font-size: 1rem; }
 table.seat-table th, table.seat-table td { border-bottom-color: rgba(0, 0, 0, 0.07); padding: 0.32rem 0.4rem; }
 table.seat-table th:first-child, table.seat-table td:first-child { padding-left: 0; white-space: nowrap; }
-table.seat-table th { white-space: nowrap; font-size: 0.85rem; }
+table.seat-table th { font-size: 0.85rem; vertical-align: bottom; }
+table.seat-table th:first-child { white-space: nowrap; }
 table.seat-table th:not(:first-child), table.seat-table .n { text-align: right; }
 table.seat-table .muted { color: var(--muted); }
 figure.trend { margin: 0; }
