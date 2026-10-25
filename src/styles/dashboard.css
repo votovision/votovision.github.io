@@ -121,3 +121,9 @@ details.methodology ul { padding-left: 1.2rem; }
 
 footer.page { font-size: 0.8rem; color: var(--muted); margin-top: 2rem; }
 #watchlist td:last-child, #riding-detail td { white-space: nowrap; }
+
+/* Results against the eve-of-election forecast. */
+.table-scroll { overflow-x: auto; }
+table.results-table td.n, table.results-table th:not(:first-child) { text-align: right; white-space: nowrap; }
+table.results-table .interval { display: block; font-size: 0.8rem; color: var(--muted, #6b6560); }
+@media (max-width: 480px) { table.results-table th:nth-child(5), table.results-table td:nth-child(5) { display: none; } }

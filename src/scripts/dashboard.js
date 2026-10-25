@@ -17,6 +17,11 @@ import { PARTIES, repoData, LANG, LOCALE, partyLabel, formatNumber, formatPercen
 const T = {
   fr: {
     nd: "n/d",
+    results: (prelim) => (prelim ? "Résultats préliminaires et prévision de la veille" : "Résultats et prévision de la veille"),
+    resultsHead: "<th>Parti</th><th>Sièges</th><th>Prévision</th><th>Vote</th><th>Vote prévu</th>",
+    resultsNote: (hits, n, src) => `Prévision : scénario médian des sièges (intervalle à 90 %) et part des votes utilisée par le modèle, au dernier calcul avant le scrutin. ` +
+      `Le favori de la prévision a été élu dans ${hits} circonscriptions sur ${n}. Source : ${src}.`,
+    resultsSource: (prelim, x) => `Elections BC, ${prelim ? "résultats préliminaires" : "résultats"}${x ? `, ${x} des urnes dépouillées` : ""}`,
     gallagherQc: "17,8 au Québec en 2026",
     gallagherCa: (g) => `${formatNumber(g, 1)} au Canada en 2025`,
     gallagherBc: (g) => `${formatNumber(g, 1)} en Colombie-Britannique en 2024`,
@@ -61,6 +66,11 @@ const T = {
   },
   en: {
     nd: "n/a",
+    results: (prelim) => (prelim ? "Preliminary results and eve-of-election forecast" : "Results and eve-of-election forecast"),
+    resultsHead: "<th>Party</th><th>Seats</th><th>Forecast</th><th>Vote</th><th>Forecast vote</th>",
+    resultsNote: (hits, n, src) => `Forecast: median seat scenario (90% interval) and vote shares used by the model, at the last run before the vote. ` +
+      `The forecast favourite was elected in ${hits} of ${n} ridings. Source: ${src}.`,
+    resultsSource: (prelim, x) => `Elections BC, ${prelim ? "preliminary results" : "results"}${x ? `, ${x} of ballot boxes reported` : ""}`,
     gallagherQc: "17.8 in Quebec in 2026",
     gallagherCa: (g) => `${formatNumber(g, 1)} in Canada in 2025`,
     gallagherBc: (g) => `${formatNumber(g, 1)} in British Columbia in 2024`,
@@ -134,7 +144,7 @@ const CONFIGS = {
   bc: {
     files: Object.fromEntries(Object.entries({
       projection: "bc_dashboard.json", polls: "bc_national_polls.json",
-      geojson: "bc_ridings_2023.geojson", tiles: "bc_tile_layout.json",
+      geojson: "bc_ridings_2023.geojson", tiles: "bc_tile_layout.json", results: "bc_results.json",
     }).map(([k, f]) => [k, repoData("bc") + f])),
     colors: PARTIES.bc.colors,
     previousElection: { date: "2024-10-19", label: "2024" },
@@ -937,6 +947,29 @@ function renderSeatCertainty(winProbs, partyCodes, totalSeats) {
 
 // ---- Main -------------------------------------------------------------------
 
+/** Results of the election against the eve-of-election forecast, in a row above the trend. */
+function renderResults(results, projection) {
+  const row = document.createElement("div");
+  row.className = "row results";
+  row.innerHTML = `<section><h2>${T.results(results.preliminary)}</h2><div id="results-summary"></div></section>`;
+  document.querySelector(".row.trend").before(row);
+  const valid = Object.values(results.votes).reduce((a, b) => a + b, 0);
+  const eve = projection.medoidCounts ?? projection.pointCounts, vote = projection.meta.projectedVote ?? {};
+  const order = Object.keys(results.votes).filter((p) => p !== "AUTRES").sort((a, b) => results.votes[b] - results.votes[a]);
+  const rows = order.map((p) => {
+    const d = projection.seatDistributions[p];
+    const interval = d ? `<span class="interval">${d.p05}–${d.p95}</span>` : "";
+    return `<tr><td>${chip(p)}</td><td class="n"><b>${results.seats[p] ?? 0}</b></td><td class="n">${eve[p] ?? 0}${interval}</td>` +
+      `<td class="n"><b>${formatPercent(results.votes[p] / valid, 1)}</b></td><td class="n">${vote[p] != null ? formatPercent(vote[p], 1) : T.nd}</td></tr>`;
+  }).join("");
+  const ridings = Object.entries(results.ridings);
+  const hits = ridings.filter(([code, r]) => projection.ridingForecast[code]?.winner === r.winner).length;
+  const reporting = results.provenance.match(/([\d.]+) % des urnes/)?.[1];
+  const source = T.resultsSource(results.preliminary, reporting ? formatPercent(Number(reporting) / 100, 2) : null);
+  document.getElementById("results-summary").innerHTML = `<div class="table-scroll"><table class="results-table"><thead><tr>${T.resultsHead}</tr></thead>` +
+    `<tbody>${rows}</tbody></table></div><p class="note">${T.resultsNote(hits, ridings.length, source)}</p>`;
+}
+
 async function loadJSON(path) {
   const resp = await fetch(path);
   if (!resp.ok) throw new Error(`${path}: HTTP ${resp.status}`);
@@ -954,8 +987,8 @@ async function main() {
   // went from ~20s of GP fitting to rendering a JSON.
   const F = CFG.files;
   const opt = (path) => (path ? loadJSON(path).catch(() => null) : Promise.resolve(null));
-  const [projection, pollRows, geojson, leaders, tileLayout] = await Promise.all([
-    loadJSON(F.projection), loadJSON(F.polls), opt(F.geojson), opt(F.leaders), opt(F.tiles),
+  const [projection, pollRows, geojson, leaders, tileLayout, results] = await Promise.all([
+    loadJSON(F.projection), loadJSON(F.polls), opt(F.geojson), opt(F.leaders), opt(F.tiles), opt(F.results),
   ]);
 
   const { meta, partyCodes, trendSeries, totalSeats } = projection;
@@ -985,6 +1018,8 @@ async function main() {
   // Sections without data for this election are removed, not left empty.
   const drop = (id) => document.getElementById(id)?.closest("section")?.remove();
   if (!leaders) drop("leader-ridings");
+  // After the vote, the results come first, next to the frozen forecast.
+  if (results && results.election === meta.electionDate) section("results-summary", () => renderResults(results, projection));
   section("trend-chart", () => {
     // Dots come from the raw poll rows (a cheap pivot, no fitting); the
     // smoothed series and bands come precomputed.

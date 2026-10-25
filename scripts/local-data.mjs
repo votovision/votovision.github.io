@@ -10,7 +10,7 @@ import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 
 const FILES = {
   quebec: ["qc_projection.json", "qc_national_polls.json", "qc_ridings_2026.geojson", "qc_leaders.json", "qc_tile_layout.json"],
-  bc: ["bc_dashboard.json", "bc_national_polls.json", "bc_ridings_2023.geojson", "bc_tile_layout.json"],
+  bc: ["bc_dashboard.json", "bc_national_polls.json", "bc_results.json", "bc_ridings_2023.geojson", "bc_tile_layout.json"],
   canada: ["ca_dashboard.json", "ca_national_polls.json", "ca_ridings_2023.geojson", "ca_tile_layout.json"],
 };
 for (const [repo, files] of Object.entries(FILES)) {

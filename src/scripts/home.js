@@ -14,6 +14,11 @@ const T = {
     first: (p) => `${p} avec le plus de sièges`, majorityGov: "Gouvernement majoritaire",
     asOf: (d, n) => `Sondages au ${d} · ${n} sondages`, unavailable: "Prévision indisponible.", live: (d) => `Élections du ${d}`, next: (d) => `Prochaines élections : au plus tard le ${d}`,
     colon: " :",
+    results: (d, prelim) => `${prelim ? "Résultats préliminaires" : "Résultats"} · ${formatDate(d)}`,
+    seats: "Sièges", vote: "Vote", eve: "Prévision",
+    eveLeader: (p, x) => `Prévision de la veille : ${p} en tête à ${x}`,
+    favourites: (n, t) => `Favori de la prévision élu dans ${n} circonscriptions sur ${t}`,
+    reporting: (x) => `Elections BC · ${x} des urnes dépouillées · votes par la poste comptés au décompte final`,
   },
   en: {
     name: { qc: "Quebec", bc: "British Columbia", ca: "Canada" }, short: { bc: "B.C." }, party: "Party", forecast: (a) => (a ? `${a} forecast` : "Forecast"), interval: "90% interval",
@@ -22,12 +27,17 @@ const T = {
     first: (p) => `${p} with the most seats`, majorityGov: "Majority government",
     asOf: (d, n) => `Polls as of ${d} · ${n} polls`, unavailable: "Forecast unavailable.", live: (d) => `Election on ${d}`, next: (d) => `Next election: by ${d}`,
     colon: ":",
+    results: (d, prelim) => `${prelim ? "Preliminary results" : "Results"} · ${formatDate(d)}`,
+    seats: "Seats", vote: "Vote", eve: "Forecast",
+    eveLeader: (p, x) => `Eve-of-election forecast: ${p} ahead at ${x}`,
+    favourites: (n, t) => `Forecast favourite elected in ${n} of ${t} ridings`,
+    reporting: (x) => `Elections BC · ${x} of ballot boxes reported · mail-in ballots counted at the final count`,
   },
 }[LANG];
 
 const SOURCES = {
   qc: { repo: "quebec", projection: "qc_projection.json", polls: "qc_national_polls.json" },
-  bc: { repo: "bc", projection: "bc_dashboard.json", polls: "bc_national_polls.json" },
+  bc: { repo: "bc", projection: "bc_dashboard.json", polls: "bc_national_polls.json", results: "bc_results.json" },
   ca: { repo: "canada", projection: "ca_dashboard.json", polls: "ca_national_polls.json" },
 };
 const monthYear = (d) => d.toLocaleDateString(LOCALE, { month: "short", year: "numeric", timeZone: "UTC" });
@@ -39,10 +49,9 @@ async function loadJSON(url) {
   return r.json();
 }
 
-/** Seat bar of the median scenario, with the majority threshold. */
-function seatBar(proj, P) {
+/** Seat bar of the median scenario (or of the results), with the majority threshold. */
+function seatBar(proj, P, seats = proj.medoidCounts ?? proj.pointCounts) {
   const total = proj.totalSeats;
-  const seats = proj.medoidCounts ?? proj.pointCounts;
   const order = proj.partyCodes.filter((p) => seats[p] > 0).sort((a, b) => seats[b] - seats[a]);
   const threshold = Math.floor(total / 2) + 1;
   const bar = document.createElement("div");
@@ -90,11 +99,12 @@ function trend(proj, P) {
   });
 }
 
-function summarise(election, proj) {
+function summarise(election, proj, results) {
   const C = PARTIES[election];
   const P = { color: (p) => C.colors[p] ?? "#a8a29e", label: (p) => partyLabel(election, p) };
   const host = document.querySelector(`.tile.election[data-election="${election}"] .summary`);
   host.innerHTML = "";
+  if (results && results.election === proj.meta?.electionDate) return summariseResults(proj, results, P, host);
 
   // Election under way: the vote is within the next 60 days.
   const days = proj.meta?.electionDate ? (Date.parse(proj.meta.electionDate) - Date.now()) / 864e5 : null;
@@ -160,6 +170,57 @@ function summarise(election, proj) {
   host.appendChild(date);
 }
 
+/** After the vote: results (seats, vote), next to the eve-of-election forecast. */
+function summariseResults(proj, results, P, host) {
+  const badge = document.createElement("p");
+  badge.className = "live-badge done";
+  badge.textContent = T.results(results.election, results.preliminary);
+  host.closest(".tile.election").querySelector("h2").after(badge);
+
+  const { bar, threshold } = seatBar(proj, P, results.seats);
+  const frame = document.createElement("div");
+  frame.className = "seat-frame";
+  frame.appendChild(bar);
+  const legend = document.createElement("p");
+  legend.className = "threshold-legend";
+  legend.textContent = T.house(proj.totalSeats, threshold);
+  frame.appendChild(legend);
+  host.appendChild(frame);
+
+  const valid = Object.values(results.votes).reduce((a, b) => a + b, 0);
+  const eve = proj.medoidCounts ?? proj.pointCounts;
+  const order = Object.keys(results.votes).filter((p) => p !== "AUTRES").sort((a, b) => results.votes[b] - results.votes[a]).slice(0, 5);
+  const table = document.createElement("table");
+  table.className = "seat-table";
+  table.innerHTML = `<thead><tr><th>${T.party}</th><th>${T.seats}</th><th>${T.vote}</th><th>${T.eve}</th></tr></thead>`;
+  const tbody = document.createElement("tbody");
+  for (const p of order) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><span class="sw" style="background:${P.color(p)}"></span>${P.label(p)}</td>` +
+      `<td class="n">${results.seats[p] ?? 0}</td><td class="n">${formatPercent(results.votes[p] / valid, 1)}</td><td class="n muted">${eve[p] ?? 0}</td>`;
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  host.appendChild(table);
+
+  const leading = {};
+  for (const s of proj.scenarios) leading[s.leader] = (leading[s.leader] ?? 0) + s.probability;
+  const [first, pFirst] = Object.entries(leading).sort((a, b) => b[1] - a[1])[0];
+  const ridings = Object.entries(results.ridings);
+  const hits = ridings.filter(([code, r]) => proj.ridingForecast?.[code]?.winner === r.winner).length;
+  const facts = document.createElement("p");
+  facts.className = "facts";
+  facts.innerHTML = `<span>${T.eveLeader(P.label(first), `<b>${formatPercent(pFirst)}</b>`)}</span>` +
+    `<span>${T.favourites(`<b>${hits}</b>`, ridings.length)}</span>`;
+  host.appendChild(facts);
+
+  const reporting = results.provenance.match(/([\d.]+) % des urnes/)?.[1];
+  const note = document.createElement("p");
+  note.className = "computed-on";
+  note.textContent = reporting ? T.reporting(formatPercent(Number(reporting) / 100, 2)) : results.provenance;
+  host.appendChild(note);
+}
+
 /** The most recent polls of both elections, with the leading party. */
 function latestPolls(batches) {
   const list = [];
@@ -191,8 +252,9 @@ function latestPolls(batches) {
 const batches = await Promise.all(Object.entries(SOURCES).map(async ([election, s]) => {
   const base = repoData(s.repo);
   try {
-    const [proj, polls] = await Promise.all([loadJSON(base + s.projection), loadJSON(base + s.polls)]);
-    summarise(election, proj);
+    const [proj, polls, results] = await Promise.all([loadJSON(base + s.projection), loadJSON(base + s.polls),
+      s.results ? loadJSON(base + s.results).catch(() => null) : null]);
+    summarise(election, proj, results);
     return [election, polls];
   } catch (err) {
     console.error(err);
