@@ -7,7 +7,7 @@
 // %% [markdown]
 // Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre à la question *qui est allé où ?* à la résolution la plus fine possible.
 //
-// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques - cela ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
+// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques — cela ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
 //
 // Dans chaque section de vote, on sélectionne le parti arrivé premier en 2022, puis en 2026, et on vérifie la migration.
 
@@ -44,10 +44,7 @@ const sections = toutes.filter((d) => d[`${DE}_gagnant`] && d[`${VERS}_gagnant`]
 const compte = d3.rollup(sections, (v) => v.length, (d) => d[`${DE}_gagnant`], (d) => d[`${VERS}_gagnant`]);
 const n = (a, b) => compte.get(a)?.get(b) ?? 0;
 
-// Diagramme : à gauche, le parti premier dans la section en DE ; à droite, en VERS ; épaisseur des flux, nombre de sections.
-// Un clic sur un parti met ses flux en évidence (d'où viennent ses sections, où elles vont) et estompe les autres ;
-// les libellés de l'autre colonne donnent alors la part des sections du parti choisi. Un second clic, ou un clic hors
-// des nœuds, rétablit l'ensemble.
+// Diagramme : à gauche, le parti premier dans la section en DE ; à droite, en VERS ; épaisseur des flux, nombre de sections. Un clic sur un parti met ses flux en évidence (d'où viennent ses sections, où elles vont) et estompe les autres ; les libellés de l'autre colonne donnent alors la part des sections du parti choisi. Un second clic, ou un clic hors des noeuds, rétablit l'ensemble.
 const L = 960, H = 480, MARGE = 120, HAUT = 28;
 
 const liens = [];
