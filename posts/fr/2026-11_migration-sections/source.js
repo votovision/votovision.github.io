@@ -5,11 +5,11 @@
 // ---
 
 // %% [markdown]
-// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les résultats par section de vote permettent de voir, à la résolution la plus fine possible, où le parti arrivé premier a changé, et au profit de qui.
+// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre à la question *qui est allé où ?* à la résolution la plus fine possible.
 //
-// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques : elles ne comptent que les votes effectués le jour de l'élection, les votes à distance ou anticipés n'en font pas partie. Ce n'est pas neutre : la CAQ a obtenu 42 % de ses votes le jour du scrutin, contre 57 à 69 % pour les autres partis, et le diagramme accentue donc un peu son recul. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
+// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques - cela ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
 //
-// Dans chaque section de vote, on sélectionne le parti arrivé premier en 2022, puis en 2026, et on vérifie la migration. Une section compte au plus 475 électeurs : compter des sections revient à peu près à compter des électeurs.
+// Dans chaque section de vote, on sélectionne le parti arrivé premier en 2022, puis en 2026, et on vérifie la migration.
 
 // %% [javascript] #collapse-cell
 // charger les packages
