@@ -17,8 +17,8 @@ const d3 = await import("https://cdn.jsdelivr.net/npm/d3@7/+esm");
 const sankeyMod = await import("https://cdn.jsdelivr.net/npm/d3-sankey@0.12/+esm");
 
 // élections comparées : les résultats de DE sont transposés sur les sections de VERS
-const DE = 2018, VERS = 2022;
-const URL_DONNEES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-10_migration-sections/sections_2018_2022.csv";
+const DE = 2022, VERS = 2026;
+const URL_DONNEES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-10_migration-sections/sections_2022_2026.csv";
 
 // partis : ordre d'affichage, libellé, couleur
 const partis = [
