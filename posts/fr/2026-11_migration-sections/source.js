@@ -2,12 +2,13 @@
 // title: Québec - Migration des votes
 // id: migration-sections
 // date: 2026-11-04
+// translation: /en/posts/2026-11_vote-migration/
 // ---
 
 // %% [markdown]
 // Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre à la question *qui est allé où ?* à la résolution la plus fine possible.
 //
-// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques — cela ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
+// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques [1]. On ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
 //
 // Dans chaque section de vote, on sélectionne le parti arrivé premier en 2022, puis en 2026, et on vérifie la migration.
 
@@ -124,4 +125,8 @@ svg.node()
 // Les pourcentages sont des proportions de sections de vote. En l'occurrence, la **CAQ** est passée de 9 994 sections de vote à 88. Les migrations de la CAQ montrent une dispersion vers le PQ, le PCQ et le PLQ. Le cœur du vote du **PLQ** est conservé presque entièrement, si l'on fait abstraction des minces cheveux migrés vers le PQ, le PCQ et QS. Le petit cœur du **PQ** est aussi resté solide, ses gains provenant essentiellement de la CAQ. **QS** a perdu de son tonus en faveur du PLQ et, dans une moindre mesure, du PQ, et n'a presque rien récolté d'ailleurs. Le **PCQ** a aussi gardé ses fidèles, et a été alimenté essentiellement par la CAQ.
 
 // %% [markdown]
-// Sources : Élections Québec, résultats par bureau de vote des élections générales du 3 octobre 2022 et du 5 octobre 2026, et polygones des sections de vote de 2022 et de 2026 (données ouvertes, [donnees.electionsquebec.qc.ca](https://donnees.electionsquebec.qc.ca/)). Transposition de 2022 sur les sections de 2026 : Votovision, [votovision/data](https://github.com/votovision/data), `sources/transposition_sections_qc.ts` ; table par section dans le dossier `data/` de ce billet.
+// ### Notes
+//
+// [1] Sources : Élections Québec, résultats par bureau de vote des élections générales du 3 octobre 2022 et du 5 octobre 2026, et polygones des sections de vote de 2022 et de 2026 (données ouvertes, [donnees.electionsquebec.qc.ca](https://donnees.electionsquebec.qc.ca/)). Transposition de 2022 sur les sections de 2026 : Votovision, [votovision/data](https://github.com/votovision/data), `sources/transposition_sections_qc.ts` ; table par section dans le dossier `data/` de ce billet.
+
+// %% [javascript]

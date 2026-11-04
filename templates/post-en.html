@@ -63,7 +63,8 @@
       .sidenote { font: 0.82rem/1.45 "Inter Variable", system-ui, sans-serif; color: #57534e; }
       .sidenote-n { font-weight: 600; color: #1d4ed8; }
       @media (min-width: 1150px) {
-        .sidenote { float: right; clear: right; position: relative; width: 280px; margin: 0.15rem -310px 1rem 0; }
+        /* Text is 640px wide, charts use the full 760px column: notes start past the column, clear of the charts. */
+        .sidenote { float: right; clear: right; position: relative; width: 280px; margin: 0.15rem -430px 1rem 0; }
         label.sidenote-number { cursor: default; }
       }
       @media (max-width: 1149px) {
