@@ -1,12 +1,12 @@
 // ---
-// title: Quebec - Vote migration
+// title: Quebec : Migration of polling divisions 2022-2026
 // id: vote-migration
 // date: 2026-11-04
 // translation: /fr/posts/2026-11_migration-sections/
 // ---
 
 // %% [markdown]
-// Votes migrated between 2022 and 2026. The vote is of course secret, but polling divisions let us answer the question *who went where?* at the finest possible resolution.
+// Votes migrated between 2022 and 2026. The vote is of course secret, but polling divisions let us roughly answer the question *who went where?* at the finest possible resolution. This approach won’t tell how individual voters moved, but rather how the winning party changed in each polling division.
 //
 // Each polling station has its polling division, and the data of each division are public [1]. Only the votes cast on election day are counted, and remote or advance votes are not part of these data. To visualize the migration of votes, what better than a Sankey diagram?
 //

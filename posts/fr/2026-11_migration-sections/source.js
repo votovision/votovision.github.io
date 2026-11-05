@@ -1,12 +1,12 @@
 // ---
-// title: Québec - Migration des votes
+// title: Québec : Migration des sections de vote 2022-2026
 // id: migration-sections
 // date: 2026-11-04
 // translation: /en/posts/2026-11_vote-migration/
 // ---
 
 // %% [markdown]
-// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre à la question *qui est allé où ?* à la résolution la plus fine possible.
+// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre approximativement à la question *qui est allé où ?* à la résolution la plus fine possible. Cette approche ne dit pas comment les votes ont migré à l'échelle individuelle, mais plutôt comment le parti gagnant a changé dans chaque section de vote.
 //
 // Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques [1]. On ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
 //
