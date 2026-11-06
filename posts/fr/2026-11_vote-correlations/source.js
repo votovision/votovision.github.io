@@ -142,3 +142,61 @@ tablePaires.node()
 
 // %% [markdown]
 // À écrire : groupes de covariables retenus et représentant de chaque groupe.
+
+// %% [javascript] #collapse-cell
+// Plan d'analyse, arrêté le 2026-11-06 avant d'ajouter les votes.
+const PLAN = {
+  unite: "section de vote de 2026 (numéro < 500), au moins 100 habitants, toutes covariables publiées",
+  reponse: "perturbation p = clr(x2026) - clr(x2022), votes du jour du scrutin (2022 transposé sur les sections de 2026) ; partis PQ, LIB, CAQ, QS, PCQ, AUTRES",
+  inference: "modèle décalé : clr(x2026) ~ clr(x2022) + covariables, effet de circonscription",
+  ordination: "RDA pondérée par les votes valides sur les clr, circonscription et clr(x2022) en covariables conditionnelles ; partition de la variance (démographie, socio-économie, circonscription, espace)",
+  confirmation: "régression multinomiale (ou Dirichlet-multinomiale) à rang réduit sur les comptes",
+  espace: "vecteurs propres spatiaux de Moran ; tests par permutations restreintes à l'intérieur des circonscriptions",
+  robustesse: ["sections au découpage stable entre 2022 et 2026", "interpolation par surface plutôt que par électeurs", "validation croisée par région administrative"],
+  rapport: "associations, jamais causalité ; partis séparés ; effets en points de pourcentage pour des profils contrastés",
+};
+
+// Covariables retenues : une balance par bloc compositionnel, les autres variables telles quelles.
+// Écartées : revenu médian des ménages et taille moyenne des ménages (|r| >= 0,8 avec le faible revenu
+// et les ménages d'une personne, à l'intérieur des circonscriptions ; ils dépendent de la composition du ménage).
+const moyenneClr = (o, bloc, parties) => d3.mean(parties, (k) => o[`${bloc}_${k}`]);
+const balance = (o, bloc, A, B) => Math.sqrt(A.length * B.length / (A.length + B.length)) * (moyenneClr(o, bloc, A) - moyenneClr(o, bloc, B));
+const retenues = (o) => ({
+  age_65plus_vs_moins50: balance(o, "age", ["65_79", "80_plus"], ["20_34", "35_49"]),
+  scol_bac_vs_secondaire_ou_moins: balance(o, "scol", ["bac_plus"], ["aucun", "secondaire"]),
+  langue_francais_vs_autres: balance(o, "langue", ["francais"], ["anglais", "non_officielle"]),
+  logement_individuel_vs_collectif: balance(o, "logement", ["individuelle"], ["petit_collectif", "tour"]),
+  navette_auto_vs_tc_actif: balance(o, "navette", ["auto"], ["transport_commun", "actif"]),
+  religion_catholique_vs_aucune: balance(o, "religion", ["catholique"], ["aucune"]),
+  prof_cols_blancs_vs_bleus: balance(o, "prof", ["0_cadres_superieurs", "1_affaires_finance_admin", "2_sciences", "4_enseignement_droit_social"],
+    ["7_metiers_transport", "8_ressources_naturelles", "9_fabrication"]),
+  faible_revenu: o.faible_revenu, menages_1_personne: o.menages_1_personne, locataires: o.locataires, immigrants: o.immigrants,
+  minorites_visibles: o.minorites_visibles, autochtone: o.autochtone, demenage_5_ans: o.demenage_5_ans, activite: o.activite,
+  chomage: o.chomage, densite: o.densite,
+});
+const covariablesRetenues = sections.map((o) => ({ cep: o.cep, sv: o.sv, ...retenues(o) }));
+const nomsRetenus = Object.keys(retenues(sections[0]));
+
+// Facteurs d'inflation de la variance, intra-circonscription : diagonale de l'inverse de la matrice de corrélation.
+const retenuesIntra = sectionsIntra.map(retenues);
+const zRetenues = nomsRetenus.map((k) => { const v = retenuesIntra.map((o) => o[k]), m = d3.mean(v), s = d3.deviation(v); return v.map((x) => (x - m) / s); });
+const corRetenues = nomsRetenus.map((_, i) => nomsRetenus.map((_, j) => d3.sum(zRetenues[i], (x, q) => x * zRetenues[j][q]) / (retenuesIntra.length - 1)));
+function inverse(M) {
+  const k = M.length, A = M.map((r, i) => [...r, ...M.map((_, j) => (i === j ? 1 : 0))]);
+  for (let c = 0; c < k; c++) {
+    let p = c; for (let r = c + 1; r < k; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    [A[c], A[p]] = [A[p], A[c]];
+    const d = A[c][c]; A[c] = A[c].map((x) => x / d);
+    for (let r = 0; r < k; r++) if (r !== c) { const f = A[r][c]; A[r] = A[r].map((x, j) => x - f * A[c][j]); }
+  }
+  return A.map((r) => r.slice(k));
+}
+const vif = inverse(corRetenues).map((r, i) => ({ covariable: nomsRetenus[i], vif: r[i] }));
+Plot.plot({
+  width: 640, height: 420, marginLeft: 230,
+  x: { label: "facteur d'inflation de la variance (intra-circonscription)", grid: true }, y: { label: null, domain: d3.sort(vif, (d) => -d.vif).map((d) => d.covariable) },
+  marks: [Plot.barX(vif, { x: "vif", y: "covariable", fill: "#8B887A" }), Plot.ruleX([0]), Plot.ruleX([5], { stroke: "#2A2E24", strokeDasharray: "3,3" })],
+})
+
+// %% [markdown]
+// À écrire : covariables retenues et plan d'analyse.
