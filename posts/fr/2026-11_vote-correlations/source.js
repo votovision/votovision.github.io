@@ -46,7 +46,7 @@ const contrastByKey = new Map(R.contrasts.map((c) => [c.key, c]));
 const GROUPS = [
   { title: "Âge, scolarité, revenu, ménages, origine, emploi", keys: R.contrasts.filter((c) => !c.block).map((c) => c.key) },
   ...[["mother_tongue", "Langue maternelle"], ["religion", "Religion"], ["commute", "Mode de transport pour se rendre au travail"], ["occupation", "Profession"]]
-    .map(([block, title]) => ({ title, keys: R.contrasts.filter((c) => c.block === block).map((c) => c.key) })),
+    .map(([block, title]) => ({ title: `${title} (une catégorie augmente, les autres gardent leurs proportions)`, keys: R.contrasts.filter((c) => c.block === block).map((c) => c.key) })),
 ];
 // Figure : titre, clé de lecture, contenu.
 function figure(title, note, ...content) {
@@ -77,28 +77,27 @@ figure("Données analysées", "Une unité est un groupe de sections de vote dess
 // À écrire : données, unité d'analyse, votes couverts.
 
 // %% [javascript]
-// Covariables : médiane des groupes de sections, et valeur à un écart type au-dessus (écart type entre groupes d'une même circonscription).
+// Tableau des covariables.
 figure("Covariables tirées du recensement de 2021",
-  "La dernière colonne donne la valeur d'un groupe de sections situé un écart type au-dessus de la médiane. L'écart type est mesuré entre les groupes d'une même circonscription. C'est l'écart utilisé pour tous les effets plus bas.",
+  "Dernière colonne : la valeur d'un groupe situé un écart type au-dessus de la médiane, l'écart type étant mesuré entre les groupes d'une même circonscription. Tous les effets plus bas correspondent à cet écart.",
   table(["Covariable", "Unité", "Médiane", "Un écart type au-dessus"], R.contrasts.map((c) => [c.label, c.unit, display(c, c.median), display(c, c.oneSdAbove)]), [2, 3]))
 
 // %% [markdown]
 // À écrire : définition des covariables (moyennes en unités réelles, compositions).
 
 // %% [javascript]
-// Paires de covariables corrélées à l'intérieur des circonscriptions (|r| d'au moins 0,5), hors paires de catégories
-// d'une même variable nominale, liées par construction.
+// Paires de covariables corrélées (|r| >= 0,5), hors catégories d'une même variable nominale.
 const correlatedPairs = d3.sort(R.contrasts.flatMap((a, i) => R.contrasts.slice(i + 1).map((b, k) => ({ a, b, r: R.correlations[i][i + 1 + k] })))
   .filter((d) => Math.abs(d.r) >= 0.5 && !(d.a.block && d.a.block === d.b.block)), (d) => -Math.abs(d.r));
 figure("Covariables qui varient ensemble",
-  "Corrélations d'au moins 0,5 en valeur absolue entre deux covariables, parmi les groupes de sections d'une même circonscription. Deux covariables très corrélées portent en partie la même information.",
+  "Corrélations d'au moins 0,5 en valeur absolue, mesurées entre les groupes de sections d'une même circonscription.",
   table(["Covariable", "Covariable", "Corrélation"], correlatedPairs.map((d) => [d.a.label, d.b.label, number(d.r, 2)]), [2]))
 
 // %% [javascript]
 // Facteur d'inflation de la variance des covariables scalaires dans le modèle complet.
 const inflation = R.varianceInflation.map((d) => ({ label: contrastByKey.get(d.key).label, vif: d.vif }));
 figure("Redondance de chaque covariable avec toutes les autres",
-  "Facteur d'inflation de la variance. À 1, la covariable est indépendante des autres. Au-delà de 5 (pointillé), son effet est mal séparé de celui des autres.",
+  "Facteur d'inflation de la variance. À 1, la covariable ne dépend pas des autres. Au-delà de 5 (pointillé), son effet se sépare mal de celui des autres.",
   Plot.plot({
     width: 760, height: 40 + 22 * inflation.length, marginLeft: 400,
     x: { label: "facteur d'inflation de la variance", grid: true }, y: { label: null, domain: d3.sort(inflation, (d) => -d.vif).map((d) => d.label) },
@@ -110,9 +109,7 @@ figure("Redondance de chaque covariable avec toutes les autres",
 // À écrire : redondances entre covariables.
 
 // %% [javascript]
-// Partition de la déviance. La déviance explicable est la déviance du modèle « province seulement » moins le bruit du
-// dépouillement (déviance attendue de comptes multinomiaux tirés au hasard). Le vote de 2022 et les covariables se
-// recoupent : chacun est donné seul (après la circonscription) et après l'autre.
+// Partition de la déviance explicable (déviance du modèle « province seulement » moins le bruit du dépouillement).
 const deviance = Object.fromEntries(R.deviance.map((d) => [d.model, d.deviance]));
 const explainable = deviance.m0 - R.noise.mean;
 const partition = [
@@ -122,7 +119,7 @@ const partition = [
   { term: "Rien de ce qui est mesuré ici", low: (deviance.m3 - R.noise.mean) / explainable, high: (deviance.m3 - R.noise.mean) / explainable },
 ];
 figure("Ce qui explique les différences de vote entre groupes de sections en 2026",
-  `Part de la déviance explicable du modèle multinomial. Le hasard du dépouillement est déjà retiré (${number(100 * R.noise.mean / deviance.m0, 1)} % de la déviance totale). Le vote de 2022 et les covariables se recoupent. Barre foncée : ce que le terme ajoute une fois l'autre pris en compte. Barre pâle : ce qu'il explique seul, après la circonscription.`,
+  `Part de la déviance explicable du modèle, le hasard du dépouillement retiré (${number(100 * R.noise.mean / deviance.m0, 1)} % de la déviance totale). Barre foncée : ce que le terme ajoute après l'autre. Barre pâle : ce qu'il explique seul, après la circonscription.`,
   Plot.plot({
     width: 760, height: 190, marginLeft: 300, marginRight: 110,
     x: { label: "part des différences de vote expliquée (%)", grid: true, domain: [0, 100] }, y: { label: null, domain: partition.map((d) => d.term) },
@@ -138,13 +135,12 @@ figure("Ce qui explique les différences de vote entre groupes de sections en 20
 // À écrire : lecture de la partition.
 
 // %% [javascript]
-// Effets des covariables sur les parts de vote de 2026, en points de pourcentage, pour un écart type de la covariable.
-// Case grise : l'intervalle à 95 % (bootstrap par circonscription) contient zéro.
+// Cartes de chaleur des effets, en points de pourcentage pour un écart type.
 const effectsByContrast = d3.group(R.effects, (d) => d.contrast);
 const includesZero = (d) => d.low <= 0 && d.high >= 0;
 const signed = (v) => (Math.abs(v) < 0.005 ? "0,00" : `${v > 0 ? "+" : ""}${number(v, 2)}`);
 const effectMaps = figure("Écart de part de vote en 2026 associé à chaque covariable, en points de pourcentage",
-  "Chaque case compare deux groupes de sections d'une même circonscription, au même vote de 2022 et aux mêmes autres covariables. Le premier est un écart type plus haut que le second sur la covariable de la rangée. Pour la langue, la religion, le transport et la profession, la catégorie de la rangée augmente et les autres gardent leurs proportions entre elles. Case grise : l'intervalle à 95 % contient zéro. Survoler une case affiche l'intervalle.");
+  "Écart de part de vote entre deux groupes de sections d'une même circonscription, le premier un écart type plus haut sur la covariable, à vote de 2022 et autres covariables égaux. Case grise : l'intervalle à 95 % contient zéro.");
 for (const g of GROUPS) {
   const rows = g.keys.flatMap((k) => effectsByContrast.get(k));
   const subtitle = document.createElement("div"); subtitle.textContent = g.title; subtitle.style.fontWeight = 600; subtitle.style.fontSize = "0.9rem"; subtitle.style.marginTop = "0.8rem";
@@ -168,8 +164,7 @@ effectMaps
 // À écrire : lecture des effets ; rappels : associations entre groupes de sections, 192 cases sans correction pour les comparaisons multiples.
 
 // %% [javascript]
-// Biplot des effets en log-ratios, sur les cinq principaux partis (régression multinomiale à rang réduit : les deux premiers
-// axes de la matrice covariables x partis). Flèches : covariables (un écart type) ; points : partis, mis à l'échelle des flèches.
+// Biplot des effets en log-ratios sur les cinq principaux partis ; points des partis mis à l'échelle des flèches.
 const arrows = R.ordination.contrasts.map((d) => ({ label: contrastByKey.get(d.contrast).label, x: d.axis1, y: d.axis2, length: Math.hypot(d.axis1, d.axis2) }));
 const labelled = new Set(d3.sort(arrows, (d) => -d.length).slice(0, 8).map((d) => d.label));
 // Étiquette d'une flèche : un peu au-delà de la pointe, dans la direction de la flèche.
@@ -180,7 +175,7 @@ const labelPoints = arrows.filter((d) => labelled.has(d.label)).map((d) => {
 const partyScale = d3.max(arrows, (d) => d.length) / d3.max(R.ordination.parties, (d) => Math.hypot(d.axis1, d.axis2));
 const partyPoints = R.ordination.parties.map((d) => ({ party: d.party, x: partyScale * d.axis1, y: partyScale * d.axis2 }));
 figure("Les covariables et les partis dans un même plan",
-  `Une flèche pointe vers les partis qui font mieux là où la covariable est plus élevée, à circonscription et vote de 2022 égaux. Plus elle est longue, plus l'association est forte. Les huit flèches les plus longues sont nommées ; survoler une flèche affiche son nom. Les deux axes résument ${number(100 * (R.ordination.shares[0] + R.ordination.shares[1]), 0)} % de la structure des effets.`,
+  `Flèche : covariable, orientée vers les partis qui font mieux là où elle est élevée, à circonscription et vote de 2022 égaux. Point : parti. Les deux axes résument ${number(100 * (R.ordination.shares[0] + R.ordination.shares[1]), 0)} % de la structure des effets.`,
   Plot.plot({
     width: 760, height: 620, inset: 40, marginLeft: 60, marginRight: 60, aspectRatio: 1,
     x: { label: `axe 1 (${number(100 * R.ordination.shares[0], 0)} %)`, ticks: 5, nice: true }, y: { label: `axe 2 (${number(100 * R.ordination.shares[1], 0)} %)`, ticks: 5, nice: true },
@@ -197,11 +192,11 @@ figure("Les covariables et les partis dans un même plan",
 // À écrire : lecture du biplot.
 
 // %% [javascript]
-// Autocorrélation spatiale des résidus entre groupes de sections voisins d'une même circonscription (I de Moran, 6 plus proches voisins).
+// I de Moran des résidus, six plus proches voisins.
 const MODELS = { m1: "la circonscription seulement", m2: "la circonscription et le vote de 2022", m3: "la circonscription, le vote de 2022 et les covariables" };
 const moran = R.spatialAutocorrelation.filter((d) => d.neighbours === 6).map((d) => ({ ...d, party: PARTY_NAME[d.party], model: MODELS[d.model] }));
 figure("Ressemblance entre groupes de sections voisins, une fois le modèle retiré",
-  "I de Moran des résidus, entre chaque groupe de sections et ses six plus proches voisins de la même circonscription. À 0, les voisins ne se ressemblent pas plus que deux groupes pris au hasard. À 1, ils s'écartent du modèle de la même façon. Un point par parti et par modèle.",
+  "Ressemblance des écarts au modèle entre un groupe de sections et ses six plus proches voisins de la même circonscription, de 0 (aucune) à 1 (écarts identiques). Un point par parti et par modèle.",
   Plot.plot({
     width: 760, height: 250, marginLeft: 60,
     x: { label: "I de Moran des résidus", grid: true, domain: [0, 0.5] }, y: { label: null, domain: PARTIES.map((p) => PARTY_NAME[p]) },
@@ -214,7 +209,7 @@ figure("Ressemblance entre groupes de sections voisins, une fois le modèle reti
 // À écrire : ce qui reste de commun entre groupes voisins une fois le profil et le vote de 2022 pris en compte.
 
 // %% [javascript]
-// Robustesse : effets de quatre variantes comparés à ceux de l'analyse principale (192 effets chacun).
+// Robustesse : quatre variantes comparées à l'analyse principale.
 const variants = [
   ["Mêmes groupes de sections, sans le vote par anticipation", R.robustness.dayOnly, R.units.count],
   ["Bureaux de vote du jour du scrutin, sans le vote par anticipation", R.robustness.offices, R.robustness.offices.units],
@@ -222,7 +217,7 @@ const variants = [
   ["Scolarité en rangs à intervalles égaux plutôt qu'en années d'études", R.robustness.schoolingRanks, R.units.count],
 ];
 figure("Les effets tiennent-ils si on change l'analyse ?",
-  "Chaque variante refait l'analyse et compare ses 192 effets à ceux de l'analyse principale. Une corrélation de 1 et un écart de 0 signifient que rien ne change.",
+  "Chaque variante refait l'analyse. Ses 192 effets sont comparés à ceux de l'analyse principale.",
   table(["Variante", "Unités", "Corrélation avec l'analyse principale", "Plus grand écart (points)"],
     variants.map(([title, v, units]) => [title, number(units), number(v.correlation, 2), number(v.largestGap, 2)]), [1, 2, 3]))
 
