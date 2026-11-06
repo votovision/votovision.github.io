@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.17",
-    "@tangent.to/ds": "^0.15.0",
+    "@tangent.to/ds": "^0.16.0",
     "astro": "^7.3.8",
     "leaflet": "^1.9.4"
   },
