@@ -38,3 +38,4 @@ public/en/posts/
 .claude/skills/humanizer/
 # Notebooks adapted by "npm run posts"
 build/
+scripts/.calculs-temp.mjs
