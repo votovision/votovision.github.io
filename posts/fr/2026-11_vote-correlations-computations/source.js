@@ -150,7 +150,6 @@ const NOMINALS = [
 ];
 const computable = (u) => SCALARS.every((s) => Number.isFinite(TRANSFORMS[s.transform].forward(s.value(u)))) && NOMINALS.every((b) => d3.sum(b.parts, (p) => p.count(u)) > 0);
 const correlation = (a, b) => { const ma = d3.mean(a), mb = d3.mean(b); let sab = 0, saa = 0, sbb = 0; for (let i = 0; i < a.length; i++) { sab += (a[i] - ma) * (b[i] - mb); saa += (a[i] - ma) ** 2; sbb += (b[i] - mb) ** 2; } return sab / Math.sqrt(saa * sbb); };
-const interdecileRange = (v) => d3.quantile(v, 0.9) - d3.quantile(v, 0.1);
 function generator(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
 // Jeu de données d'une analyse : unités retenues (au moins 100 habitants, votes valides aux deux élections, covariables
@@ -171,9 +170,10 @@ function buildDataset(candidates) {
 
 // Matrice du modèle et contrastes. Colonnes : 4 coordonnées ilr du vote de 2022 des cinq principaux partis, une colonne par
 // covariable scalaire (transformée), D - 1 coordonnées ilr par variable nominale ; toutes centrées par circonscription.
-// Un contraste est un déplacement dans cet espace : pour une covariable scalaire, son écart interdécile à l'intérieur des
-// circonscriptions ; pour une catégorie d'une variable nominale, l'écart interdécile du logit de sa part, les autres
-// catégories gardant leurs proportions entre elles (perturbation compositionnelle).
+// Un contraste est un déplacement d'un écart type dans cet espace, l'écart type étant mesuré à l'intérieur des
+// circonscriptions : pour une covariable scalaire, celui de sa colonne ; pour une catégorie d'une variable nominale, celui de
+// sa coordonnée pivot, sqrt((D - 1) / D) · ln(catégorie / moyenne géométrique des autres), les autres catégories gardant
+// leurs proportions entre elles.
 function buildDesign(data, scalars) {
   const { units, n, center } = data, columns = [], contrasts = [];
   const add = (name, v) => columns.push({ name, v: center(v) });
@@ -183,21 +183,21 @@ function buildDesign(data, scalars) {
   for (const s of scalars) {
     const T = TRANSFORMS[s.transform], raw = units.map((u) => s.value(u)), position = columns.length;
     add(s.key, raw.map(T.forward));
-    const range = interdecileRange(columns[position].v), middle = T.forward(d3.median(raw));
-    contrasts.push({ key: s.key, block: null, label: s.label, unit: s.unit, percent: !!s.percent, median: d3.median(raw),
-      low: T.inverse(middle - range / 2), high: T.inverse(middle + range / 2), shift: [[position, range]], variable: columns[position].v });
+    const sd = d3.deviation(columns[position].v), median = d3.median(raw);
+    contrasts.push({ key: s.key, block: null, label: s.label, unit: s.unit, percent: !!s.percent, median,
+      oneSdAbove: T.inverse(T.forward(median) + sd), shift: [[position, sd]], variable: columns[position].v });
   }
   for (const b of NOMINALS) {
     const D = b.parts.length, counts = units.map((u) => b.parts.map((p) => p.count(u) + 0.5)), coordinates = ilr(counts), position = columns.length;
     for (let a = 0; a < D - 1; a++) add(`${b.key}_${a + 1}`, coordinates.map((r) => r[a]));
     b.parts.forEach((p, k) => {
-      const share = counts.map((r) => r[k] / d3.sum(r)), logit = center(share.map(TRANSFORMS.logit.forward));
-      const range = interdecileRange(logit), middle = TRANSFORMS.logit.forward(d3.median(share));
-      // Déplacement ilr d'une perturbation qui multiplie la catégorie k par exp(range).
-      const direction = ilr([b.parts.map((_, m) => (m === k ? Math.exp(range) : 1))])[0];
-      contrasts.push({ key: p.key, block: b.key, label: p.label, unit: b.unit, percent: true, median: d3.median(share),
-        low: TRANSFORMS.logit.inverse(middle - range / 2), high: TRANSFORMS.logit.inverse(middle + range / 2),
-        shift: direction.map((d, a) => [position + a, d]), variable: logit });
+      const share = counts.map((r) => r[k] / d3.sum(r)), median = d3.median(share);
+      const pivot = center(counts.map((r) => Math.sqrt((D - 1) / D) * (Math.log(r[k]) - d3.mean(r.filter((_, m) => m !== k), Math.log))));
+      // Un écart type de la coordonnée pivot multiplie la catégorie k par `factor`, les autres restant proportionnelles.
+      const sd = d3.deviation(pivot), factor = Math.exp(sd * Math.sqrt(D / (D - 1)));
+      const direction = ilr([b.parts.map((_, m) => (m === k ? factor : 1))])[0];
+      contrasts.push({ key: p.key, block: b.key, label: p.label, unit: b.unit, percent: true, median,
+        oneSdAbove: (median * factor) / (median * factor + 1 - median), shift: direction.map((d, a) => [position + a, d]), variable: pivot });
     });
   }
   const q = columns.length, Z = new Float64Array(n * q);
@@ -310,8 +310,9 @@ function deviance(model, counts = model.data.Y) {
   for (let i = 0; i < n; i++) { predict(model, i, p); for (let k = 0; k < K; k++) { const y = counts[i * K + k]; if (y) total += 2 * y * Math.log(y / (N[i] * p[k])); } }
   return total;
 }
-// Effets. Pour chaque contraste, le prédicteur linéaire de chaque unité est déplacé de moitié vers le bas et de moitié vers
-// le haut ; l'effet est l'écart moyen des parts prédites, pondéré par les votes, en points de pourcentage.
+// Effets. Pour chaque contraste (un écart type), le prédicteur linéaire de chaque unité est déplacé d'un demi-écart type vers
+// le bas et d'un demi-écart type vers le haut ; l'effet est l'écart moyen des parts prédites, pondéré par les votes, en
+// points de pourcentage.
 function effects(model, contrasts, { weights = null, mask = null } = {}) {
   const { n, N } = model.data, C = contrasts.length, out = new Float64Array(C * K), high = new Float64Array(K), low = new Float64Array(K);
   const shifts = contrasts.map((c) => Float64Array.from({ length: J }, (_, j) => { let s = 0; for (let a = 0; a < model.q; a++) s += model.B[j * model.q + a] * c.delta[a]; return s / 2; }));
@@ -474,7 +475,7 @@ const voteTotals = { day2026: d3.sum(sections, (s) => d3.sum(s.day2026)), advanc
 const results = {
   generated: new Date().toISOString(), parties: PARTIES,
   units: { count: n, excluded: data.excluded, sections: d3.sum(data.units, (u) => u.sections), ridings: data.nGroups, votes: d3.sum(N), ...voteTotals },
-  contrasts: design.contrasts.map((c) => ({ key: c.key, block: c.block, label: c.label, unit: c.unit, percent: c.percent, median: c.median, low: c.low, high: c.high })),
+  contrasts: design.contrasts.map((c) => ({ key: c.key, block: c.block, label: c.label, unit: c.unit, percent: c.percent, median: c.median, oneSdAbove: c.oneSdAbove })),
   correlations, varianceInflation, deviance: devianceTable, noise, overdispersion, spatialAutocorrelation,
   effects: effectsTable, ordination, robustness,
 };
