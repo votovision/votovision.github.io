@@ -8,11 +8,11 @@
 // %% [markdown]
 // > The calculations in this post can be [reproduced on tangent/note](https://note.tangent.to/gh/votovision/votovision.github.io/posts/en/2026-11_vote-migration/source.js).
 //
-// Votes migrated between 2022 and 2026. The vote is of course secret, but polling divisions let us roughly answer the question *who went where?* at the finest possible resolution. This approach won’t tell how individual voters moved, but rather how the winning party changed in each polling division.
+// Votes migrated between 2022 and 2026. The vote is of course secret, but polling divisions let us roughly answer the question *who went where?* at the finest possible resolution. This approach won’t tell how individual voters moved, but rather how the winning party changed in each group of polling divisions.
 //
-// Each polling station has its polling division, and the data of each division are public [1]. Only the votes cast on election day are counted, and remote or advance votes are not part of these data. To visualize the migration of votes, what better than a Sankey diagram?
+// Each polling station has its polling division, and the data of each division are public [1]. Advance votes are published by advance polling station, and each of these stations serves a group of polling divisions. Votes are therefore counted by group of polling divisions, combining election-day and advance votes. Other remote votes are not part of these data. To visualize the migration of votes, what better than a Sankey diagram?
 //
-// In each polling division, we select the party that came first in 2022, then in 2026, and we check the migration.
+// In each group of polling divisions, we select the party that came first in 2022, then in 2026, and we check the migration.
 
 // %% [javascript] #collapse-cell
 // load the packages
@@ -21,7 +21,7 @@ const sankeyMod = await import("https://cdn.jsdelivr.net/npm/d3-sankey@0.12/+esm
 
 // elections compared: the results of DE are transposed onto the divisions of VERS
 const DE = 2022, VERS = 2026;
-const URL_DONNEES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-11_migration-sections/sections_2022_2026.csv";
+const URL_DONNEES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-11_migration-sections/advance_poll_groups_2022_2026.csv";
 
 // parties: display order, label, colour
 const partis = [
@@ -41,10 +41,11 @@ const F_TEXTE = "'Inter Tight', 'Segoe UI', sans-serif";
 const fmt = new Intl.NumberFormat("en-CA");
 const pct = (x) => `${Math.round(x * 100)}%`;
 
-// one row per division of VERS; keep those with a first-place party in both elections
+// one row per group of VERS divisions served by the same advance polling station (election-day and advance votes combined;
+// in DE, advance votes allocated to divisions in proportion to electors, then transposed); keep groups with a first-place party in both elections
 const toutes = await d3.csv(URL_DONNEES, d3.autoType);
-const sections = toutes.filter((d) => d[`${DE}_gagnant`] && d[`${VERS}_gagnant`]);
-const compte = d3.rollup(sections, (v) => v.length, (d) => d[`${DE}_gagnant`], (d) => d[`${VERS}_gagnant`]);
+const sections = toutes.filter((d) => d[`winner_${DE}`] && d[`winner_${VERS}`]);
+const compte = d3.rollup(sections, (v) => v.length, (d) => d[`winner_${DE}`], (d) => d[`winner_${VERS}`]);
 const n = (a, b) => compte.get(a)?.get(b) ?? 0;
 
 // Diagram: on the left, the party first in the division in DE; on the right, in VERS; flow width, number of divisions. Clicking a party highlights its flows (where its divisions come from, where they go) and fades the others; the labels of the other column then give the share of the chosen party's divisions. A second click, or a click outside the nodes, restores everything.
@@ -72,7 +73,7 @@ svg.append("rect").attr("width", L).attr("height", H).attr("fill", "transparent"
 
 // column headers
 // chart title
-svg.append("text").attr("x", L / 2).attr("y", 16).attr("text-anchor", "middle").attr("fill", ENCRE).attr("font-weight", 600).style("font-size", "15px").text(`Migration of the winning party by polling division, ${DE}-${VERS}`);
+svg.append("text").attr("x", L / 2).attr("y", 16).attr("text-anchor", "middle").attr("fill", ENCRE).attr("font-weight", 600).style("font-size", "15px").text(`Migration of the winning party by group of polling divisions, ${DE}-${VERS}`);
 svg.append("text").attr("x", MARGE - 8).attr("y", 42).attr("text-anchor", "end").attr("fill", GRIS).text(`First in ${DE}`);
 svg.append("text").attr("x", L - MARGE + 8).attr("y", 42).attr("text-anchor", "start").attr("fill", GRIS).text(`First in ${VERS}`);
 
@@ -84,8 +85,8 @@ const gLiens = svg.append("g").attr("fill", "none").selectAll("path").data(graph
 gLiens.append("title").text((d) => {
   const deA = d3.sum(graphe.links.filter((l) => l.source.id === d.source.id), (l) => l.value);
   const versB = d3.sum(graphe.links.filter((l) => l.target.id === d.target.id), (l) => l.value);
-  return `${parti[d.source.code].nom} ${DE} → ${parti[d.target.code].nom} ${VERS}: ${fmt.format(d.value)} divisions\n` +
-    `${pct(d.value / deA)} of ${parti[d.source.code].nom}'s ${DE} divisions; ${pct(d.value / versB)} of ${parti[d.target.code].nom}'s ${VERS} divisions`;
+  return `${parti[d.source.code].nom} ${DE} → ${parti[d.target.code].nom} ${VERS}: ${fmt.format(d.value)} groups of divisions\n` +
+    `${pct(d.value / deA)} of ${parti[d.source.code].nom}'s ${DE} groups; ${pct(d.value / versB)} of ${parti[d.target.code].nom}'s ${VERS} groups`;
 });
 
 const gNoeuds = svg.append("g").selectAll("rect").data(graphe.nodes).join("rect")
@@ -123,10 +124,10 @@ choisir(null);
 svg.node()
 
 // %% [markdown]
-// *Each 2026 polling division is classified by the party that came first on election day in 2022 (left, 2022 results transposed onto the 2026 boundaries) and in 2026 (right). Advance voting excluded. Click on a party to highlight it.*
+// *Each 2026 group of polling divisions is classified by the party that came first in 2022 (left, 2022 results transposed onto the 2026 boundaries) and in 2026 (right). Election-day and advance votes combined. Click on a party to highlight it.*
 
 // %% [markdown]
-// The percentages are proportions of polling divisions. In this case, the **CAQ** went from 9,994 polling divisions to 88. The CAQ's migrations show a dispersion toward the PQ, the CPQ and the QLP. The core of the **QLP** vote was kept almost entirely, setting aside the thin strands that migrated to the PQ, the CPQ and QS. The small core of the **PQ** also held firm, its gains coming mostly from the CAQ. **QS** lost some of its vigour to the QLP and, to a lesser extent, to the PQ, and picked up almost nothing elsewhere. The **CPQ** also kept its faithful, and was fed mostly by the CAQ.
+// The percentages are proportions of groups of polling divisions. In this case, the **CAQ** went from 2,342 groups of polling divisions to 19. The CAQ's migrations show a dispersion toward the PQ, the CPQ and the QLP. The core of the **QLP** vote was kept almost entirely, setting aside the thin strands that migrated to the PQ and QS. The small core of the **PQ** also held firm, its gains coming mostly from the CAQ. **QS** lost some of its vigour to the QLP and, to a lesser extent, to the PQ, and picked up almost nothing elsewhere. The **CPQ** also kept its faithful, and was fed mostly by the CAQ.
 
 // %% [markdown]
 // ### Notes

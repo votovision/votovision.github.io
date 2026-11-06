@@ -8,11 +8,11 @@
 // %% [markdown]
 // > Les calculs de ce billet peuvent être [reproduits sur tangent/note](https://note.tangent.to/gh/votovision/votovision.github.io/posts/fr/2026-11_migration-sections/source.js).
 //
-// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre approximativement à la question *qui est allé où ?* à la résolution la plus fine possible. Cette approche ne dit pas comment les votes ont migré à l'échelle individuelle, mais plutôt comment le parti gagnant a changé dans chaque section de vote.
+// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre approximativement à la question *qui est allé où ?* à la résolution la plus fine possible. Cette approche ne dit pas comment les votes ont migré à l'échelle individuelle, mais plutôt comment le parti gagnant a changé dans chaque groupe de sections de vote.
 //
-// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques [1]. On ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
+// Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques [1]. Le vote par anticipation est publié par bureau de vote par anticipation, et chacun de ces bureaux dessert un groupe de sections. On compte donc les votes par groupe de sections, en réunissant le vote du jour de l'élection et le vote par anticipation. Les autres votes à distance ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
 //
-// Dans chaque section de vote, on sélectionne le parti arrivé premier en 2022, puis en 2026, et on vérifie la migration.
+// Dans chaque groupe de sections, on sélectionne le parti arrivé premier en 2022, puis en 2026, et on vérifie la migration.
 
 // %% [javascript] #collapse-cell
 // charger les packages
@@ -21,7 +21,7 @@ const sankeyMod = await import("https://cdn.jsdelivr.net/npm/d3-sankey@0.12/+esm
 
 // élections comparées : les résultats de DE sont transposés sur les sections de VERS
 const DE = 2022, VERS = 2026;
-const URL_DONNEES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-11_migration-sections/sections_2022_2026.csv";
+const URL_DONNEES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-11_migration-sections/advance_poll_groups_2022_2026.csv";
 
 // partis : ordre d'affichage, libellé, couleur
 const partis = [
@@ -41,10 +41,11 @@ const F_TEXTE = "'Inter Tight', 'Segoe UI', sans-serif";
 const fmt = new Intl.NumberFormat("fr-CA");
 const pct = (x) => `${Math.round(x * 100)} %`;
 
-// une ligne par section de VERS ; on garde celles qui ont un premier aux deux élections
+// une ligne par groupe de sections de VERS desservies par un même bureau de vote par anticipation (vote du jour du scrutin et vote par anticipation
+// réunis ; en DE, vote par anticipation réparti par section au prorata des électeurs, puis transposé) ; on garde les groupes qui ont un premier aux deux élections
 const toutes = await d3.csv(URL_DONNEES, d3.autoType);
-const sections = toutes.filter((d) => d[`${DE}_gagnant`] && d[`${VERS}_gagnant`]);
-const compte = d3.rollup(sections, (v) => v.length, (d) => d[`${DE}_gagnant`], (d) => d[`${VERS}_gagnant`]);
+const sections = toutes.filter((d) => d[`winner_${DE}`] && d[`winner_${VERS}`]);
+const compte = d3.rollup(sections, (v) => v.length, (d) => d[`winner_${DE}`], (d) => d[`winner_${VERS}`]);
 const n = (a, b) => compte.get(a)?.get(b) ?? 0;
 
 // Diagramme : à gauche, le parti premier dans la section en DE ; à droite, en VERS ; épaisseur des flux, nombre de sections. Un clic sur un parti met ses flux en évidence (d'où viennent ses sections, où elles vont) et estompe les autres ; les libellés de l'autre colonne donnent alors la part des sections du parti choisi. Un second clic, ou un clic hors des noeuds, rétablit l'ensemble.
@@ -72,7 +73,7 @@ svg.append("rect").attr("width", L).attr("height", H).attr("fill", "transparent"
 
 // en-têtes de colonnes
 // titre du graphique
-svg.append("text").attr("x", L / 2).attr("y", 16).attr("text-anchor", "middle").attr("fill", ENCRE).attr("font-weight", 600).style("font-size", "15px").text(`Migration du parti gagnant par section de vote, ${DE}-${VERS}`);
+svg.append("text").attr("x", L / 2).attr("y", 16).attr("text-anchor", "middle").attr("fill", ENCRE).attr("font-weight", 600).style("font-size", "15px").text(`Migration du parti gagnant par groupe de sections de vote, ${DE}-${VERS}`);
 svg.append("text").attr("x", MARGE - 8).attr("y", 42).attr("text-anchor", "end").attr("fill", GRIS).text(`Premier en ${DE}`);
 svg.append("text").attr("x", L - MARGE + 8).attr("y", 42).attr("text-anchor", "start").attr("fill", GRIS).text(`Premier en ${VERS}`);
 
@@ -84,8 +85,8 @@ const gLiens = svg.append("g").attr("fill", "none").selectAll("path").data(graph
 gLiens.append("title").text((d) => {
   const deA = d3.sum(graphe.links.filter((l) => l.source.id === d.source.id), (l) => l.value);
   const versB = d3.sum(graphe.links.filter((l) => l.target.id === d.target.id), (l) => l.value);
-  return `${parti[d.source.code].nom} ${DE} → ${parti[d.target.code].nom} ${VERS} : ${fmt.format(d.value)} sections\n` +
-    `${pct(d.value / deA)} des sections ${parti[d.source.code].nom} de ${DE} ; ${pct(d.value / versB)} des sections ${parti[d.target.code].nom} de ${VERS}`;
+  return `${parti[d.source.code].nom} ${DE} → ${parti[d.target.code].nom} ${VERS} : ${fmt.format(d.value)} groupes de sections\n` +
+    `${pct(d.value / deA)} des groupes ${parti[d.source.code].nom} de ${DE} ; ${pct(d.value / versB)} des groupes ${parti[d.target.code].nom} de ${VERS}`;
 });
 
 const gNoeuds = svg.append("g").selectAll("rect").data(graphe.nodes).join("rect")
@@ -123,10 +124,10 @@ choisir(null);
 svg.node()
 
 // %% [markdown]
-// *Chaque section de vote de 2026 est classée selon le parti arrivé premier le jour du scrutin en 2022 (à gauche, résultats de 2022 transposés sur le découpage de 2026) et en 2026 (à droite). Vote par anticipation exclu. Cliquez sur un parti pour le mettre en surbrillance.*
+// *Chaque groupe de sections de vote de 2026 est classé selon le parti arrivé premier en 2022 (à gauche, résultats de 2022 transposés sur le découpage de 2026) et en 2026 (à droite). Vote du jour de l'élection et vote par anticipation réunis. Cliquez sur un parti pour le mettre en surbrillance.*
 
 // %% [markdown]
-// Les pourcentages sont des proportions de sections de vote. En l'occurrence, la **CAQ** est passée de 9 994 sections de vote à 88. Les migrations de la CAQ montrent une dispersion vers le PQ, le PCQ et le PLQ. Le cœur du vote du **PLQ** est conservé presque entièrement, si l'on fait abstraction des minces cheveux migrés vers le PQ, le PCQ et QS. Le petit cœur du **PQ** est aussi resté solide, ses gains provenant essentiellement de la CAQ. **QS** a perdu de son tonus en faveur du PLQ et, dans une moindre mesure, du PQ, et n'a presque rien récolté d'ailleurs. Le **PCQ** a aussi gardé ses fidèles, et a été alimenté essentiellement par la CAQ.
+// Les pourcentages sont des proportions de groupes de sections. En l'occurrence, la **CAQ** est passée de 2 342 groupes de sections à 19. Les migrations de la CAQ montrent une dispersion vers le PQ, le PCQ et le PLQ. Le cœur du vote du **PLQ** est conservé presque entièrement, si l'on fait abstraction des minces cheveux migrés vers le PQ et QS. Le petit cœur du **PQ** est aussi resté solide, ses gains provenant essentiellement de la CAQ. **QS** a perdu de son tonus en faveur du PLQ et, dans une moindre mesure, du PQ, et n'a presque rien récolté d'ailleurs. Le **PCQ** a aussi gardé ses fidèles, et a été alimenté essentiellement par la CAQ.
 
 // %% [markdown]
 // ### Notes
