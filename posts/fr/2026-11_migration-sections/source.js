@@ -1,5 +1,5 @@
 // ---
-// title: Québec : Migration des sections de vote 2022-2026
+// title: Québec : Migration des groupes de sections de vote 2022-2026
 // id: migration-sections
 // date: 2026-11-04
 // translation: /en/posts/2026-11_vote-migration/
@@ -8,7 +8,7 @@
 // %% [markdown]
 // > Les calculs de ce billet peuvent être [reproduits sur tangent/note](https://note.tangent.to/gh/votovision/votovision.github.io/posts/fr/2026-11_migration-sections/source.js).
 //
-// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre approximativement à la question *qui est allé où ?* à la résolution la plus fine possible. Cette approche ne dit pas comment les votes ont migré à l'échelle individuelle, mais plutôt comment le parti gagnant a changé dans chaque groupe de sections de vote.
+// Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre approximativement à la question *qui est allé où ?* à la résolution la plus fine qui permet de considérer le vote par anticipation. Cette approche ne dit pas comment les votes ont migré à l'échelle individuelle, mais plutôt comment le parti gagnant a changé dans chaque groupe de sections de vote.
 //
 // Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques [1]. Le vote par anticipation est publié par bureau de vote par anticipation, et chacun de ces bureaux dessert un groupe de sections. On compte donc les votes par groupe de sections, en réunissant le vote du jour de l'élection et le vote par anticipation. Les autres votes à distance ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
 //
