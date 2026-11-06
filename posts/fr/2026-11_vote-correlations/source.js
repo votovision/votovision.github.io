@@ -331,3 +331,122 @@ Plot.plot({
 
 // %% [markdown]
 // À écrire : lecture du triplot. Non fait à cette étape : termes spatiaux, permutations restreintes, modèle multinomial à rang réduit.
+
+// %% [javascript] #collapse-cell
+// Étape 1. Plafond du bruit : variance des log-ratios de 2026 sous le seul hasard du dépouillement, par simulation
+// (20 tirages multinomiaux par section, au total de votes observé et aux proportions observées lissées),
+// pondérée comme l'analyse. L'approximation de Poisson, Var(log n) ≈ 1 / n, ne tient pas pour les petits comptes.
+const D = PARTIS.length;
+const bruitAttendu = (() => {
+  let graine = 5; const alea = () => ((graine = (graine * 1664525 + 1013904223) >>> 0) / 4294967296);
+  return d3.sum(unites, ({ v }, i) => {
+    const comptes = PARTIS.map((p) => Math.round(v[`2026_${p}`])), N = d3.sum(comptes);
+    const proba = comptes.map((x) => (x + 0.5) / (N + 0.5 * D)), cumul = d3.cumsum(proba);
+    const tirages = d3.range(20).map(() => {
+      const c = PARTIS.map(() => 0);
+      for (let k = 0; k < N; k++) { const u = alea() * cumul[D - 1]; c[cumul.findIndex((x) => x >= u)]++; }
+      return clr(c.map((x) => x + 0.5));
+    });
+    return poids[i] * d3.sum(PARTIS, (_, j) => d3.variance(tirages, (t) => t[j]));
+  });
+})();
+const plafond = (() => {
+  const resteApres2022 = ss(Yr), explicable = resteApres2022 - bruitAttendu;
+  return { bruitSurReste: bruitAttendu / resteApres2022, covariablesSurExplicable: ss(Yhat) / explicable };
+})();
+
+// Étape 2. Vecteurs propres spatiaux de Moran à l'intérieur de chaque circonscription : graphe des 6 plus proches
+// voisins (symétrisé) entre points représentatifs des sections, matrice doublement centrée, vecteurs propres
+// d'autocorrélation positive ; on en garde ceil(n / 20) par circonscription (structures de grande échelle).
+const { core } = await import("https://cdn.jsdelivr.net/npm/@tangent.to/ds@0.16/+esm");
+const position = unites.map(({ c }) => { const r = brut.find((b) => b.cep === c.cep && b.sv === c.sv); return [r.x, r.y]; });
+const indicesParCirconscription = d3.group(d3.range(unites.length), (i) => cepDe[i]);
+const K_VOISINS = 6;
+function voisins(idx) {
+  const n = idx.length, W = idx.map(() => new Array(n).fill(0));
+  idx.forEach((i, a) => {
+    const proches = d3.sort(d3.range(n).filter((b) => b !== a), (b) => (position[idx[b]][0] - position[i][0]) ** 2 + (position[idx[b]][1] - position[i][1]) ** 2).slice(0, K_VOISINS);
+    for (const b of proches) { W[a][b] = 1; W[b][a] = 1; }
+  });
+  return W;
+}
+const mem = new Map(), grapheVoisins = new Map();
+for (const [cep, idx] of indicesParCirconscription) {
+  const n = idx.length, W = voisins(idx);
+  grapheVoisins.set(cep, W);
+  if (n < 10) { mem.set(cep, []); continue; }
+  const rm = W.map((r) => d3.mean(r)), m = d3.mean(rm);
+  const O = W.map((r, a) => r.map((x, b) => x - rm[a] - rm[b] + m));
+  const { values, vectors } = core.linalg.eig(O);
+  const garder = d3.range(values.length).filter((k) => values[k] > 1e-8).slice(0, Math.ceil(n / 20));
+  mem.set(cep, garder.map((k) => d3.range(n).map((a) => vectors.get(a, k))));
+}
+// Retrait des structures spatiales, circonscription par circonscription (moindres carrés pondérés par bloc).
+function retirerEspace(M) {
+  const out = M.map((r) => [...r]);
+  for (const [cep, idx] of indicesParCirconscription) {
+    const Z = mem.get(cep); if (!Z.length) continue;
+    const Zb = idx.map((_, a) => Z.map((col) => col[a])), w = idx.map((i) => poids[i]), Mb = idx.map((i) => M[i]);
+    const ZtWZ = Z.map((_, p) => Z.map((__, q) => d3.sum(Zb, (r, a) => w[a] * r[p] * r[q])));
+    const ZtWM = Z.map((_, p) => M[0].map((__, j) => d3.sum(Zb, (r, a) => w[a] * r[p] * Mb[a][j])));
+    const C = produit(inverse(ZtWZ), ZtWM), F = produit(Zb, C);
+    idx.forEach((i, a) => (out[i] = M[i].map((x, j) => x - F[a][j])));
+  }
+  return out;
+}
+const Ys = retirerEspace(Yc), Ls = retirerEspace(Lc), Xs = retirerEspace(Xc);
+const Yr2 = residus(Ys, Ls), Xr2 = residus(Xs, Ls);
+const B2 = produit(inverse(xtwy(Xr2, Xr2)), xtwy(Xr2, Yr2)), Yhat2 = produit(Xr2, B2);
+const partitionSpatiale = (() => {
+  const T = ss(Ytot), circ = T - ss(Yc), espace = ss(Yc) - ss(Ys), lag = ss(Ys) - ss(Yr2), cov = ss(Yhat2);
+  return [
+    { part: "circonscription", f: circ / T }, { part: "espace (à l'intérieur des circonscriptions)", f: espace / T },
+    { part: "vote de 2022 (à circonscription et espace égaux)", f: lag / T }, { part: "covariables (à circonscription, espace et 2022 égaux)", f: cov / T },
+    { part: "non expliqué", f: 1 - (circ + espace + lag + cov) / T },
+  ];
+})();
+
+// I de Moran des résidus finaux, par parti, sur le graphe des voisins (intra-circonscription).
+const residusFinaux = Yr2.map((r, i) => r.map((x, j) => x - Yhat2[i][j]));
+const moranResidus = PARTIS.map((p, j) => {
+  let num = 0, den = 0, s0 = 0;
+  for (const [cep, idx] of indicesParCirconscription) {
+    const W = grapheVoisins.get(cep);
+    idx.forEach((i, a) => { den += residusFinaux[i][j] ** 2; idx.forEach((k, b) => { if (W[a][b]) { num += residusFinaux[i][j] * residusFinaux[k][j]; s0++; } }); });
+  }
+  return { parti: p, I: (unites.length / s0) * (num / den) };
+});
+
+// Permutations des covariables à l'intérieur des circonscriptions, après retrait de l'espace et du vote de 2022 :
+// R² partiel observé contre 199 permutations.
+const R2partiel = (Xp) => { const Bp = produit(inverse(xtwy(Xp, Xp)), xtwy(Xp, Yr2)); return ss(produit(Xp, Bp)) / ss(Yr2); };
+const permutation = (() => {
+  let graine = 11; const alea = () => ((graine = (graine * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const observe = R2partiel(Xr2), nulles = [];
+  for (let k = 0; k < 199; k++) {
+    const Xp = new Array(Xr2.length);
+    for (const idx of indicesParCirconscription.values()) {
+      const melange = [...idx]; for (let a = melange.length - 1; a > 0; a--) { const b = Math.floor(alea() * (a + 1)); [melange[a], melange[b]] = [melange[b], melange[a]]; }
+      idx.forEach((i, a) => (Xp[i] = Xr2[melange[a]]));
+    }
+    nulles.push(R2partiel(Xp));
+  }
+  return { observe, maxNul: d3.max(nulles), p: (1 + nulles.filter((x) => x >= observe).length) / 200 };
+})();
+
+({ plafond, partitionSpatiale: partitionSpatiale.map((d) => `${d.part} ${(100 * d.f).toFixed(1)} %`), moranResidus: moranResidus.map((d) => `${d.parti} ${d.I.toFixed(3)}`), permutation })
+
+// %% [markdown]
+// À écrire : plafond du bruit, structures spatiales, permutations.
+
+// %% [javascript]
+// Partition de la variance avec les structures spatiales intra-circonscription.
+Plot.plot({
+  width: 640, height: 230, marginLeft: 360,
+  x: { label: "part de la variance (%)", grid: true, domain: [0, 100] }, y: { label: null, domain: partitionSpatiale.map((d) => d.part) },
+  marks: [Plot.barX(partitionSpatiale, { x: (d) => 100 * d.f, y: "part", fill: "#8B887A" }),
+    Plot.text(partitionSpatiale, { x: (d) => 100 * d.f, y: "part", text: (d) => `${(100 * d.f).toFixed(1)} %`, dx: 4, textAnchor: "start" })],
+})
+
+// %% [markdown]
+// À écrire : lecture.
