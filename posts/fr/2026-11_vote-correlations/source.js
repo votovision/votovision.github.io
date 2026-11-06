@@ -60,6 +60,30 @@ function covariables(r) {
   return o;
 }
 
+// Libellés lisibles des covariables et des partis, pour les graphiques.
+const LIBELLES = {
+  age_20_34: "Âge : 20-34 ans", age_35_49: "Âge : 35-49 ans", age_50_64: "Âge : 50-64 ans", age_65_79: "Âge : 65-79 ans", age_80_plus: "Âge : 80 ans et plus",
+  langue_francais: "Langue maternelle : français", langue_anglais: "Langue maternelle : anglais", langue_non_officielle: "Langue maternelle : autre",
+  scol_aucun: "Scolarité : aucun diplôme", scol_secondaire: "Scolarité : secondaire", scol_metiers: "Scolarité : métiers", scol_cegep: "Scolarité : cégep",
+  scol_univ_inf_bac: "Scolarité : universitaire sous le bac", scol_bac_plus: "Scolarité : bac et plus",
+  logement_individuelle: "Logement : maison individuelle", logement_attenante: "Logement : maison attenante", logement_petit_collectif: "Logement : petit collectif", logement_tour: "Logement : tour",
+  prof_0_cadres_superieurs: "Profession : cadres supérieurs", prof_1_affaires_finance_admin: "Profession : affaires, finance, administration", prof_2_sciences: "Profession : sciences",
+  prof_3_sante: "Profession : santé", prof_4_enseignement_droit_social: "Profession : enseignement, droit, social", prof_5_arts_culture: "Profession : arts, culture",
+  prof_6_vente_services: "Profession : vente, services", prof_7_metiers_transport: "Profession : métiers, transport", prof_8_ressources_naturelles: "Profession : ressources naturelles",
+  prof_9_fabrication: "Profession : fabrication",
+  navette_auto: "Navette : automobile", navette_transport_commun: "Navette : transport en commun", navette_actif: "Navette : marche ou vélo", navette_autre: "Navette : autre",
+  religion_catholique: "Religion : catholique", religion_aucune: "Religion : aucune", religion_autre: "Religion : autre",
+  locataires: "Locataires", menages_1_personne: "Ménages d'une personne", immigrants: "Immigrants", minorites_visibles: "Minorités visibles", autochtone: "Identité autochtone",
+  demenage_5_ans: "A déménagé en cinq ans", activite: "Taux d'activité", chomage: "Taux de chômage", faible_revenu: "Faible revenu (MFR-ApI)",
+  revenu_median: "Revenu médian des ménages", taille_menages: "Taille moyenne des ménages", densite: "Densité de population",
+  age_65plus_vs_moins50: "Âge : 65 ans et plus contre moins de 50 ans", scol_bac_vs_secondaire_ou_moins: "Scolarité : bac et plus contre secondaire ou moins",
+  langue_francais_vs_autres: "Langue : français contre autres", logement_individuel_vs_collectif: "Logement : individuel contre collectif",
+  navette_auto_vs_tc_actif: "Navette : automobile contre transport en commun et actif", religion_catholique_vs_aucune: "Religion : catholique contre aucune",
+  prof_cols_blancs_vs_bleus: "Professions : cols blancs contre cols bleus",
+};
+const libelle = (k) => LIBELLES[k] ?? k;
+const NOM_PARTI = { PQ: "PQ", LIB: "PLQ", CAQ: "CAQ", QS: "QS", PCQ: "PCQ", AUTRES: "Autres" };
+
 // Sections d'au moins 100 habitants, toutes covariables publiées.
 const sections = brut.filter((r) => r.population >= 100).map((r) => ({ cep: r.cep, sv: r.sv, ...covariables(r) }))
   .filter((o) => Object.values(o).every((v) => v !== null && Number.isFinite(v)));
@@ -100,40 +124,35 @@ Plot.plot({
 // À écrire : lecture de la variance expliquée.
 
 // %% [javascript]
-// Corrélations intra-circonscription entre covariables (Pearson, variables transformées).
-Plot.plot({
-  width: 760, height: 760, marginLeft: 170, marginBottom: 170,
-  x: { domain: variables, tickRotate: -90, label: null }, y: { domain: variables, label: null },
-  color: { type: "diverging", scheme: "RdBu", domain: [-1, 1], legend: true, label: "r" },
-  style: { fontSize: "9px" },
-  marks: [Plot.cell(corIntra, { x: "a", y: "b", fill: "r", title: (d) => `${d.a} · ${d.b} : ${d.r.toFixed(2)}` })],
-})
+// Saturations des covariables sur les trois premières composantes de l'ACP intra-circonscription (12 plus fortes par composante).
+const saturationsCP = d3.range(3).flatMap((c) => d3.sort(variables.map((v, i) => ({ cp: `CP${c + 1} (${(100 * acpIntra.varianceExplained[c]).toFixed(1)} %)`, v: libelle(v), s: acpIntra.rawLoadings[i][c] })),
+  (d) => -Math.abs(d.s)).slice(0, 12));
+// Un graphique de barres par série : étiquettes propres à chacun, triées par valeur.
+function barres(lignes, { titre, x = "s", y = "v", etiquetteX, domaine, couleur }) {
+  const fig = document.createElement("figure");
+  const h = document.createElement("figcaption"); h.textContent = titre; h.style.fontWeight = 600; fig.append(h);
+  fig.append(Plot.plot({
+    width: 760, height: 30 + 22 * lignes.length, marginLeft: 360,
+    x: { label: etiquetteX, grid: true, domain: domaine }, y: { label: null, domain: d3.sort(lignes, (d) => -d[x]).map((d) => d[y]) },
+    marks: [Plot.barX(lignes, { x, y, fill: couleur }), Plot.ruleX([0])],
+  }));
+  return fig;
+}
+const figuresCP = document.createElement("div");
+for (const cp of d3.union(saturationsCP.map((d) => d.cp))) {
+  figuresCP.append(barres(saturationsCP.filter((d) => d.cp === cp), { titre: cp, etiquetteX: "saturation", domaine: [-0.45, 0.45], couleur: (d) => (d.s > 0 ? "#2B50C8" : "#E01020") }));
+}
+figuresCP
+
 
 // %% [markdown]
 // À écrire : lecture de la matrice de corrélation.
 
 // %% [javascript]
-// Saturations des variables sur les deux premières composantes de l'ACP intra-circonscription.
-const saturations = variables.map((v, i) => ({ v, x: acpIntra.rawLoadings[i][0], y: acpIntra.rawLoadings[i][1] }));
-Plot.plot({
-    width: 760, height: 620, inset: 20,
-    x: { label: `CP1 (${(100 * acpIntra.varianceExplained[0]).toFixed(1)} %)`, grid: true },
-    y: { label: `CP2 (${(100 * acpIntra.varianceExplained[1]).toFixed(1)} %)`, grid: true },
-    marks: [
-      Plot.ruleX([0]), Plot.ruleY([0]),
-      Plot.arrow(saturations, { x1: 0, y1: 0, x2: "x", y2: "y", stroke: "#8B887A", headLength: 4 }),
-      Plot.text(saturations, { x: "x", y: "y", text: "v", fontSize: 9, dx: 4, textAnchor: "start", fill: "#2A2E24" }),
-    ],
-  })
-
-// %% [markdown]
-// À écrire : lecture des deux premières composantes.
-
-// %% [javascript]
 // Paires de covariables de blocs différents corrélées à |r| >= 0,8, brutes et intra-circonscription.
 const blocDe = (v) => v.split("_")[0];
 const pairesFortes = (cor, niveau) => cor.filter((d) => d.a < d.b && blocDe(d.a) !== blocDe(d.b) && Math.abs(d.r) >= 0.8)
-  .map((d) => ({ niveau, a: d.a, b: d.b, r: d.r.toFixed(2) }));
+  .map((d) => ({ niveau, a: libelle(d.a), b: libelle(d.b), r: d.r.toFixed(2) }));
 const tablePaires = d3.create("table");
 tablePaires.append("thead").append("tr").selectAll("th").data(["niveau", "variable 1", "variable 2", "r"]).join("th").text((d) => d);
 tablePaires.append("tbody").selectAll("tr").data([...pairesFortes(corBrut, "brut"), ...pairesFortes(corIntra, "intra-circonscription")]).join("tr")
@@ -191,15 +210,32 @@ function inverse(M) {
   }
   return A.map((r) => r.slice(k));
 }
-const vif = inverse(corRetenues).map((r, i) => ({ covariable: nomsRetenus[i], vif: r[i] }));
+const vif = inverse(corRetenues).map((r, i) => ({ covariable: libelle(nomsRetenus[i]), vif: r[i] }));
 Plot.plot({
-  width: 640, height: 420, marginLeft: 230,
+  width: 760, height: 460, marginLeft: 360,
   x: { label: "facteur d'inflation de la variance (intra-circonscription)", grid: true }, y: { label: null, domain: d3.sort(vif, (d) => -d.vif).map((d) => d.covariable) },
   marks: [Plot.barX(vif, { x: "vif", y: "covariable", fill: "#8B887A" }), Plot.ruleX([0]), Plot.ruleX([5], { stroke: "#2A2E24", strokeDasharray: "3,3" })],
 })
 
 // %% [markdown]
 // À écrire : covariables retenues et plan d'analyse.
+
+// %% [javascript]
+// Corrélations intra-circonscription entre les 17 covariables retenues.
+const corRetenuesLongue = nomsRetenus.flatMap((a, i) => nomsRetenus.map((b, j) => ({ a: libelle(a), b: libelle(b), r: corRetenues[i][j] })));
+Plot.plot({
+  width: 760, height: 700, marginLeft: 360, marginBottom: 10,
+  x: { domain: nomsRetenus.map(libelle), axis: null }, y: { domain: nomsRetenus.map(libelle), label: null },
+  color: { type: "diverging", scheme: "RdBu", domain: [-1, 1], legend: true, label: "r" },
+  marks: [
+    Plot.cell(corRetenuesLongue, { x: "a", y: "b", fill: "r", inset: 0.5 }),
+    Plot.text(corRetenuesLongue, { x: "a", y: "b", text: (d) => (d.a === d.b ? "" : d.r.toFixed(1)), fontSize: 9, fill: (d) => (Math.abs(d.r) > 0.6 ? "white" : "#2A2E24") }),
+  ],
+})
+
+
+// %% [markdown]
+// À écrire : lecture des corrélations entre covariables retenues (colonnes dans le même ordre que les rangées).
 
 // %% [javascript] #collapse-cell
 // Votes du jour du scrutin par section de 2026 : 2026 mesuré, 2022 transposé (billet sur la migration des sections).
@@ -302,32 +338,37 @@ Plot.plot({
 // %% [javascript]
 // Corrélations intra-circonscription entre covariables et perturbation de chaque parti.
 Plot.plot({
-  width: 640, height: 520, marginLeft: 230,
-  x: { domain: PARTIS, label: null, axis: "top" }, y: { domain: nomsRetenus, label: null },
-  color: { type: "diverging", scheme: "RdBu", domain: [-0.6, 0.6], legend: true, label: "r" },
+  width: 760, height: 560, marginLeft: 360,
+  x: { domain: PARTIS, label: null, axis: "top", tickFormat: (p) => NOM_PARTI[p] }, y: { domain: nomsRetenus, label: null, tickFormat: libelle },
+  color: { type: "diverging", scheme: "RdBu", domain: [-0.2, 0.2], legend: true, label: "r" },
   marks: [
-    Plot.cell(correlationsPerturbation, { x: "parti", y: "covariable", fill: "r" }),
-    Plot.text(correlationsPerturbation, { x: "parti", y: "covariable", text: (d) => d.r.toFixed(2), fontSize: 9 }),
+    Plot.cell(correlationsPerturbation, { x: "parti", y: "covariable", fill: "r", inset: 0.5 }),
+    Plot.text(correlationsPerturbation, { x: "parti", y: "covariable", text: (d) => d.r.toFixed(2), fontSize: 10 }),
   ],
 })
+
 
 // %% [markdown]
 // À écrire : lecture de la carte de chaleur ; rappel : associations entre sections, pas comportements individuels.
 
 // %% [javascript]
-// Triplot de la RDA partielle (circonscription et vote de 2022 en covariables conditionnelles) : covariables et partis.
-Plot.plot({
-  width: 760, height: 620, inset: 30,
-  x: { label: `axe 1 (${(100 * inerties[0]).toFixed(1)} % de la variance contrainte)`, grid: true },
-  y: { label: `axe 2 (${(100 * inerties[1]).toFixed(1)} %)`, grid: true },
-  marks: [
-    Plot.ruleX([0]), Plot.ruleY([0]),
-    Plot.arrow(flechesCovariables, { x1: 0, y1: 0, x2: "x", y2: "y", stroke: "#8B887A", headLength: 4 }),
-    Plot.text(flechesCovariables, { x: "x", y: "y", text: "nom", fontSize: 9, dx: 4, textAnchor: "start", fill: "#5E5B50" }),
-    Plot.arrow(flechesPartis, { x1: 0, y1: 0, x2: "x", y2: "y", stroke: "#2A2E24", strokeWidth: 2, headLength: 6 }),
-    Plot.text(flechesPartis, { x: "x", y: "y", text: "nom", fontWeight: 600, dx: 6, textAnchor: "start" }),
-  ],
-})
+// RDA partielle (circonscription et vote de 2022 retirés) : position des partis et corrélation des covariables
+// avec les deux premiers axes. Un parti et une covariable du même côté d'un axe vont ensemble.
+const profilsRDA = [0, 1].flatMap((a) => [
+  ...flechesPartis.map((d) => ({ axe: `Axe ${a + 1} (${(100 * inerties[a]).toFixed(1)} %)`, groupe: "Partis", nom: NOM_PARTI[d.nom], v: a ? d.y : d.x })),
+  ...flechesCovariables.map((d) => ({ axe: `Axe ${a + 1} (${(100 * inerties[a]).toFixed(1)} %)`, groupe: "Covariables", nom: libelle(d.nom), v: a ? d.y : d.x })),
+]);
+const figuresRDA = document.createElement("div");
+for (const axe of d3.union(profilsRDA.map((d) => d.axe))) {
+  for (const groupe of ["Partis", "Covariables"]) {
+    figuresRDA.append(barres(profilsRDA.filter((d) => d.axe === axe && d.groupe === groupe), {
+      titre: `${axe} : ${groupe === "Partis" ? "position des partis" : "corrélation des covariables"}`, x: "v", y: "nom",
+      etiquetteX: groupe === "Partis" ? "coordonnée" : "corrélation", domaine: [-1, 1], couleur: groupe === "Partis" ? "#2A2E24" : "#8B887A",
+    }));
+  }
+}
+figuresRDA
+
 
 // %% [markdown]
 // À écrire : lecture du triplot. Non fait à cette étape : termes spatiaux, permutations restreintes, modèle multinomial à rang réduit.
@@ -361,16 +402,21 @@ Plot.plot({
 // À écrire : modèle multinomial, surdispersion, effets en points.
 
 // %% [javascript]
-// Effets moyens en points de pourcentage (10e au 90e centile intra-circonscription), intervalle de bootstrap à 90 %.
+// Effets moyens en points de pourcentage : covariable du 10e au 90e centile intra-circonscription, autres fixes.
+// Case grise : l'intervalle de bootstrap à 90 % contient zéro.
 Plot.plot({
-  width: 760, height: 900, marginLeft: 230, marginRight: 20,
-  fx: { domain: PARTIS, label: null }, x: { label: "points de pourcentage", grid: true }, y: { domain: nomsRetenus, label: null },
+  width: 760, height: 560, marginLeft: 360,
+  x: { domain: PARTIS, label: null, axis: "top", tickFormat: (p) => NOM_PARTI[p] }, y: { domain: nomsRetenus, label: null, tickFormat: libelle },
+  color: { type: "diverging", scheme: "RdBu", domain: [-4, 4], legend: true, label: "points de pourcentage" },
   marks: [
-    Plot.ruleX([0]),
-    Plot.ruleY(bootstrap, { fx: "parti", y: "covariable", x1: "bas", x2: "haut", stroke: "#8B887A" }),
-    Plot.dot(bootstrap, { fx: "parti", y: "covariable", x: "points", fill: "#2A2E24", r: 2.5 }),
+    Plot.cell(bootstrap, { x: "parti", y: "covariable", fill: (d) => (d.bas <= 0 && d.haut >= 0 ? null : d.points), inset: 0.5 }),
+    Plot.cell(bootstrap.filter((d) => d.bas <= 0 && d.haut >= 0), { x: "parti", y: "covariable", fill: "#ECE8E1", inset: 0.5 }),
+    Plot.text(bootstrap, { x: "parti", y: "covariable", text: (d) => `${d.points > 0 ? "+" : ""}${d.points.toFixed(1)}`, fontSize: 10,
+      fill: (d) => (Math.abs(d.points) > 2.5 && !(d.bas <= 0 && d.haut >= 0) ? "white" : "#2A2E24"),
+      title: (d) => `${NOM_PARTI[d.parti]}, ${libelle(d.covariable)} : ${d.points.toFixed(2)} [${d.bas.toFixed(2)} ; ${d.haut.toFixed(2)}]` }),
   ],
 })
+
 
 // %% [markdown]
 // À écrire : lecture des effets ; associations entre sections, effet du vote anticipé sur l'âge.
