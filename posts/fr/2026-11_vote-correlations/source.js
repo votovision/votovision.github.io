@@ -76,12 +76,14 @@ const LIBELLES = {
   locataires: "Locataires", menages_1_personne: "Ménages d'une personne", immigrants: "Immigrants", minorites_visibles: "Minorités visibles", autochtone: "Identité autochtone",
   demenage_5_ans: "A déménagé en cinq ans", activite: "Taux d'activité", chomage: "Taux de chômage", faible_revenu: "Faible revenu (MFR-ApI)",
   revenu_median: "Revenu médian des ménages", taille_menages: "Taille moyenne des ménages", densite: "Densité de population",
-  age_65plus_vs_moins50: "Âge : 65 ans et plus contre moins de 50 ans", scol_bac_vs_secondaire_ou_moins: "Scolarité : bac et plus contre secondaire ou moins",
-  langue_francais_vs_autres: "Langue : français contre autres", logement_individuel_vs_collectif: "Logement : individuel contre collectif",
-  navette_auto_vs_tc_actif: "Navette : automobile contre transport en commun et actif", religion_catholique_vs_aucune: "Religion : catholique contre aucune",
-  prof_cols_blancs_vs_bleus: "Professions : cols blancs contre cols bleus",
+  age_65plus_vs_moins50: "Âge : rapport 65 ans et plus / moins de 50 ans", scol_bac_vs_secondaire_ou_moins: "Scolarité : rapport bac et plus / secondaire ou moins",
+  langue_francais_vs_autres: "Langue maternelle : rapport français / autres langues", logement_individuel_vs_collectif: "Logement : rapport maisons individuelles / collectifs",
+  navette_auto_vs_tc_actif: "Navette : rapport automobile / transport en commun, marche et vélo", religion_catholique_vs_aucune: "Religion : rapport catholiques / sans religion",
+  prof_cols_blancs_vs_bleus: "Professions : rapport cols blancs / cols bleus",
 };
 const libelle = (k) => LIBELLES[k] ?? k;
+// Sens de lecture des rapports, en légende des graphiques qui les montrent.
+const LEGENDE_RAPPORTS = "Rapport A / B : plus la valeur est élevée, plus le groupe A pèse par rapport au groupe B dans la section (log du rapport des moyennes géométriques).";
 const NOM_PARTI = { PQ: "PQ", LIB: "PLQ", CAQ: "CAQ", QS: "QS", PCQ: "PCQ", AUTRES: "Autres" };
 
 // Sections d'au moins 100 habitants, toutes covariables publiées.
@@ -128,11 +130,11 @@ Plot.plot({
 const saturationsCP = d3.range(3).flatMap((c) => d3.sort(variables.map((v, i) => ({ cp: `CP${c + 1} (${(100 * acpIntra.varianceExplained[c]).toFixed(1)} %)`, v: libelle(v), s: acpIntra.rawLoadings[i][c] })),
   (d) => -Math.abs(d.s)).slice(0, 12));
 // Un graphique de barres par série : étiquettes propres à chacun, triées par valeur.
-function barres(lignes, { titre, x = "s", y = "v", etiquetteX, domaine, couleur }) {
+function barres(lignes, { titre, x = "s", y = "v", etiquetteX, domaine, couleur, legende = null }) {
   const fig = document.createElement("figure");
   const h = document.createElement("figcaption"); h.textContent = titre; h.style.fontWeight = 600; fig.append(h);
   fig.append(Plot.plot({
-    width: 760, height: 30 + 22 * lignes.length, marginLeft: 360,
+    width: 760, height: 30 + 22 * lignes.length + (legende ? 30 : 0), marginLeft: 360, caption: legende,
     x: { label: etiquetteX, grid: true, domain: domaine }, y: { label: null, domain: d3.sort(lignes, (d) => -d[x]).map((d) => d[y]) },
     marks: [Plot.barX(lignes, { x, y, fill: couleur }), Plot.ruleX([0])],
   }));
@@ -213,7 +215,8 @@ function inverse(M) {
 const vif = inverse(corRetenues).map((r, i) => ({ covariable: libelle(nomsRetenus[i]), vif: r[i] }));
 Plot.plot({
   width: 760, height: 460, marginLeft: 360,
-  x: { label: "facteur d'inflation de la variance (intra-circonscription)", grid: true }, y: { label: null, domain: d3.sort(vif, (d) => -d.vif).map((d) => d.covariable) },
+  x: { label: "facteur d'inflation de la variance (intra-circonscription)", grid: true },
+  caption: LEGENDE_RAPPORTS, y: { label: null, domain: d3.sort(vif, (d) => -d.vif).map((d) => d.covariable) },
   marks: [Plot.barX(vif, { x: "vif", y: "covariable", fill: "#8B887A" }), Plot.ruleX([0]), Plot.ruleX([5], { stroke: "#2A2E24", strokeDasharray: "3,3" })],
 })
 
@@ -225,6 +228,7 @@ Plot.plot({
 const corRetenuesLongue = nomsRetenus.flatMap((a, i) => nomsRetenus.map((b, j) => ({ a: libelle(a), b: libelle(b), r: corRetenues[i][j] })));
 Plot.plot({
   width: 760, height: 700, marginLeft: 360, marginBottom: 10,
+  caption: LEGENDE_RAPPORTS,
   x: { domain: nomsRetenus.map(libelle), axis: null }, y: { domain: nomsRetenus.map(libelle), label: null },
   color: { type: "diverging", scheme: "RdBu", domain: [-1, 1], legend: true, label: "r" },
   marks: [
@@ -341,6 +345,7 @@ Plot.plot({
   width: 760, height: 560, marginLeft: 360,
   x: { domain: PARTIS, label: null, axis: "top", tickFormat: (p) => NOM_PARTI[p] }, y: { domain: nomsRetenus, label: null, tickFormat: libelle },
   color: { type: "diverging", scheme: "RdBu", domain: [-0.2, 0.2], legend: true, label: "r" },
+  caption: LEGENDE_RAPPORTS,
   marks: [
     Plot.cell(correlationsPerturbation, { x: "parti", y: "covariable", fill: "r", inset: 0.5 }),
     Plot.text(correlationsPerturbation, { x: "parti", y: "covariable", text: (d) => d.r.toFixed(2), fontSize: 10 }),
@@ -364,6 +369,7 @@ for (const axe of d3.union(profilsRDA.map((d) => d.axe))) {
     figuresRDA.append(barres(profilsRDA.filter((d) => d.axe === axe && d.groupe === groupe), {
       titre: `${axe} : ${groupe === "Partis" ? "position des partis" : "corrélation des covariables"}`, x: "v", y: "nom",
       etiquetteX: groupe === "Partis" ? "coordonnée" : "corrélation", domaine: [-1, 1], couleur: groupe === "Partis" ? "#2A2E24" : "#8B887A",
+      legende: groupe === "Partis" ? null : LEGENDE_RAPPORTS,
     }));
   }
 }
@@ -408,6 +414,7 @@ Plot.plot({
   width: 760, height: 560, marginLeft: 360,
   x: { domain: PARTIS, label: null, axis: "top", tickFormat: (p) => NOM_PARTI[p] }, y: { domain: nomsRetenus, label: null, tickFormat: libelle },
   color: { type: "diverging", scheme: "RdBu", domain: [-4, 4], legend: true, label: "points de pourcentage" },
+  caption: LEGENDE_RAPPORTS,
   marks: [
     Plot.cell(bootstrap, { x: "parti", y: "covariable", fill: (d) => (d.bas <= 0 && d.haut >= 0 ? null : d.points), inset: 0.5 }),
     Plot.cell(bootstrap.filter((d) => d.bas <= 0 && d.haut >= 0), { x: "parti", y: "covariable", fill: "#ECE8E1", inset: 0.5 }),
