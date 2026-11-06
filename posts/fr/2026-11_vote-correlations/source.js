@@ -200,3 +200,134 @@ Plot.plot({
 
 // %% [markdown]
 // À écrire : covariables retenues et plan d'analyse.
+
+// %% [javascript] #collapse-cell
+// Votes du jour du scrutin par section de 2026 : 2026 mesuré, 2022 transposé (billet sur la migration des sections).
+const URL_VOTES = "https://raw.githubusercontent.com/votovision/votovision.github.io/refs/heads/main/posts/data/2026-11_migration-sections/sections_2022_2026.csv";
+const votesBruts = await d3.csv(URL_VOTES, d3.autoType);
+const PARTIS = ["PQ", "LIB", "CAQ", "QS", "PCQ", "AUTRES"];
+const votesParSection = new Map(votesBruts.map((r) => [`${r.circonscription}-${r.sv}`, r]));
+
+// Unités analysées : covariables retenues et votes valides aux deux élections.
+const unites = covariablesRetenues.map((c) => ({ c, v: votesParSection.get(`${c.cep}-${c.sv}`) }))
+  .filter(({ v }) => v && v["2026_valides"] > 0 && v["2022_valides"] > 0);
+const poids = unites.map(({ v }) => v["2026_valides"]);
+const clr26 = unites.map(({ v }) => clr(PARTIS.map((p) => v[`2026_${p}`] + 0.5)));
+const clr22 = unites.map(({ v }) => clr(PARTIS.map((p) => v[`2022_${p}`] + 0.5)));
+// Covariables standardisées (moyenne et écart type pondérés sur l'ensemble).
+const X = (() => {
+  const M = unites.map(({ c }) => nomsRetenus.map((k) => c[k]));
+  const W = d3.sum(poids);
+  const mu = nomsRetenus.map((_, j) => d3.sum(M, (r, i) => poids[i] * r[j]) / W);
+  const sd = nomsRetenus.map((_, j) => Math.sqrt(d3.sum(M, (r, i) => poids[i] * (r[j] - mu[j]) ** 2) / W));
+  return M.map((r) => r.map((x, j) => (x - mu[j]) / sd[j]));
+})();
+
+// Algèbre pondérée : centrage par circonscription, régression, sommes de carrés.
+const cepDe = unites.map(({ c }) => c.cep);
+function centrerParCirconscription(M) {
+  const acc = new Map();
+  M.forEach((r, i) => { const a = acc.get(cepDe[i]) ?? acc.set(cepDe[i], { w: 0, s: r.map(() => 0) }).get(cepDe[i]); a.w += poids[i]; r.forEach((x, j) => (a.s[j] += poids[i] * x)); });
+  return M.map((r, i) => { const a = acc.get(cepDe[i]); return r.map((x, j) => x - a.s[j] / a.w); });
+}
+function centrer(M) { const W = d3.sum(poids); const mu = M[0].map((_, j) => d3.sum(M, (r, i) => poids[i] * r[j]) / W); return M.map((r) => r.map((x, j) => x - mu[j])); }
+const ss = (M) => d3.sum(M, (r, i) => poids[i] * d3.sum(r, (x) => x * x));
+const xtwy = (A, B) => A[0].map((_, j) => B[0].map((_, k) => d3.sum(A, (r, i) => poids[i] * r[j] * B[i][k])));
+const produit = (A, B) => A.map((r) => B[0].map((_, k) => d3.sum(r, (x, j) => x * B[j][k])));
+function residus(Y, Z) { const C = produit(inverse(xtwy(Z, Z)), xtwy(Z, Y)); const F = produit(Z, C); return Y.map((r, i) => r.map((x, j) => x - F[i][j])); }
+
+// Effet fixe de circonscription (centrage), puis vote de 2022 (5 log-ratios indépendants) retiré des réponses et des covariables.
+const Ytot = centrer(clr26);
+const Yc = centrerParCirconscription(clr26), Lc = centrerParCirconscription(clr22.map((r) => r.slice(0, 5))), Xc = centrerParCirconscription(X);
+const Yr = residus(Yc, Lc), Xr = residus(Xc, Lc);
+const B = produit(inverse(xtwy(Xr, Xr)), xtwy(Xr, Yr));
+const Yhat = produit(Xr, B);
+
+// Partition de la variance totale (pondérée) des clr de 2026, dans l'ordre circonscription, vote de 2022, covariables.
+const partition = (() => {
+  const T = ss(Ytot), circ = T - ss(Yc), lag = ss(Yc) - ss(Yr), cov = ss(Yhat);
+  return [
+    { part: "circonscription", f: circ / T }, { part: "vote de 2022 (à circonscription égale)", f: lag / T },
+    { part: "covariables (à circonscription et vote de 2022 égaux)", f: cov / T }, { part: "non expliqué", f: 1 - (circ + lag + cov) / T },
+  ];
+})();
+
+// Perturbation par parti (clr de 2026 moins clr de 2022), corrélée à chaque covariable, intra-circonscription, pondérée.
+const perturbation = centrerParCirconscription(clr26.map((r, i) => r.map((x, j) => x - clr22[i][j])));
+const correlationsPerturbation = nomsRetenus.flatMap((k, j) => PARTIS.map((p, q) => {
+  const x = Xc.map((r) => r[j]), y = perturbation.map((r) => r[q]);
+  const sxy = d3.sum(x, (v, i) => poids[i] * v * y[i]), sxx = d3.sum(x, (v, i) => poids[i] * v * v), syy = d3.sum(y, (v, i) => poids[i] * v * v);
+  return { covariable: k, parti: p, r: sxy / Math.sqrt(sxx * syy) };
+}));
+
+// RDA partielle : décomposition en valeurs propres de Yhat' W Yhat (6 x 6, méthode de Jacobi).
+function valeursPropres(S) {
+  const k = S.length, A = S.map((r) => [...r]), V = A.map((_, i) => A.map((__, j) => (i === j ? 1 : 0)));
+  for (let it = 0; it < 100; it++) {
+    let p = 0, q = 1, m = 0;
+    for (let i = 0; i < k; i++) for (let j = i + 1; j < k; j++) if (Math.abs(A[i][j]) > m) { m = Math.abs(A[i][j]); p = i; q = j; }
+    if (m < 1e-12) break;
+    const th = 0.5 * Math.atan2(2 * A[p][q], A[q][q] - A[p][p]), c = Math.cos(th), s = Math.sin(th);
+    for (let i = 0; i < k; i++) { const a = A[i][p], b = A[i][q]; A[i][p] = c * a - s * b; A[i][q] = s * a + c * b; }
+    for (let i = 0; i < k; i++) { const a = A[p][i], b = A[q][i]; A[p][i] = c * a - s * b; A[q][i] = s * a + c * b; }
+    for (let i = 0; i < k; i++) { const a = V[i][p], b = V[i][q]; V[i][p] = c * a - s * b; V[i][q] = s * a + c * b; }
+  }
+  return d3.sort(A.map((_, i) => ({ valeur: A[i][i], vecteur: V.map((r) => r[i]) })), (d) => -d.valeur);
+}
+const axes = valeursPropres(xtwy(Yhat, Yhat));
+const scoresAxes = axes.slice(0, 2).map((a) => Yhat.map((r) => d3.sum(r, (x, j) => x * a.vecteur[j])));
+// Flèches des covariables : corrélation pondérée avec les scores des deux premiers axes.
+const corPonderee = (x, y) => d3.sum(x, (v, i) => poids[i] * v * y[i]) / Math.sqrt(d3.sum(x, (v, i) => poids[i] * v * v) * d3.sum(y, (v, i) => poids[i] * v * v));
+const flechesCovariables = nomsRetenus.map((k, j) => ({ nom: k, x: corPonderee(Xr.map((r) => r[j]), scoresAxes[0]), y: corPonderee(Xr.map((r) => r[j]), scoresAxes[1]) }));
+const flechesPartis = PARTIS.map((p, j) => ({ nom: p, x: axes[0].vecteur[j], y: axes[1].vecteur[j] }));
+const inerties = axes.map((a) => a.valeur / d3.sum(axes, (b) => b.valeur));
+
+({ unites: unites.length, partition: partition.map((d) => `${d.part} ${(100 * d.f).toFixed(1)} %`), axes: inerties.slice(0, 3).map((x) => (100 * x).toFixed(1)) })
+
+// %% [markdown]
+// À écrire : construction de la réponse et partition de la variance.
+
+// %% [javascript]
+// Partition de la variance des log-ratios de 2026.
+Plot.plot({
+  width: 640, height: 200, marginLeft: 330,
+  x: { label: "part de la variance (%)", grid: true, domain: [0, 100] }, y: { label: null, domain: partition.map((d) => d.part) },
+  marks: [Plot.barX(partition, { x: (d) => 100 * d.f, y: "part", fill: "#8B887A" }),
+    Plot.text(partition, { x: (d) => 100 * d.f, y: "part", text: (d) => `${(100 * d.f).toFixed(1)} %`, dx: 4, textAnchor: "start" })],
+})
+
+// %% [markdown]
+// À écrire : lecture de la partition.
+
+// %% [javascript]
+// Corrélations intra-circonscription entre covariables et perturbation de chaque parti.
+Plot.plot({
+  width: 640, height: 520, marginLeft: 230,
+  x: { domain: PARTIS, label: null, axis: "top" }, y: { domain: nomsRetenus, label: null },
+  color: { type: "diverging", scheme: "RdBu", domain: [-0.6, 0.6], legend: true, label: "r" },
+  marks: [
+    Plot.cell(correlationsPerturbation, { x: "parti", y: "covariable", fill: "r" }),
+    Plot.text(correlationsPerturbation, { x: "parti", y: "covariable", text: (d) => d.r.toFixed(2), fontSize: 9 }),
+  ],
+})
+
+// %% [markdown]
+// À écrire : lecture de la carte de chaleur ; rappel : associations entre sections, pas comportements individuels.
+
+// %% [javascript]
+// Triplot de la RDA partielle (circonscription et vote de 2022 en covariables conditionnelles) : covariables et partis.
+Plot.plot({
+  width: 760, height: 620, inset: 30,
+  x: { label: `axe 1 (${(100 * inerties[0]).toFixed(1)} % de la variance contrainte)`, grid: true },
+  y: { label: `axe 2 (${(100 * inerties[1]).toFixed(1)} %)`, grid: true },
+  marks: [
+    Plot.ruleX([0]), Plot.ruleY([0]),
+    Plot.arrow(flechesCovariables, { x1: 0, y1: 0, x2: "x", y2: "y", stroke: "#8B887A", headLength: 4 }),
+    Plot.text(flechesCovariables, { x: "x", y: "y", text: "nom", fontSize: 9, dx: 4, textAnchor: "start", fill: "#5E5B50" }),
+    Plot.arrow(flechesPartis, { x1: 0, y1: 0, x2: "x", y2: "y", stroke: "#2A2E24", strokeWidth: 2, headLength: 6 }),
+    Plot.text(flechesPartis, { x: "x", y: "y", text: "nom", fontWeight: 600, dx: 6, textAnchor: "start" }),
+  ],
+})
+
+// %% [markdown]
+// À écrire : lecture du triplot. Non fait à cette étape : termes spatiaux, permutations restreintes, modèle multinomial à rang réduit.
