@@ -6,6 +6,8 @@
 // ---
 
 // %% [markdown]
+// > Les calculs de ce billet peuvent être [reproduits sur tangent/note](https://note.tangent.to/gh/votovision/votovision.github.io/posts/fr/2026-11_migration-sections/source.js).
+//
 // Les votes ont migré entre 2022 et 2026. Le vote est bien entendu secret, mais les sections de vote permettent de répondre approximativement à la question *qui est allé où ?* à la résolution la plus fine possible. Cette approche ne dit pas comment les votes ont migré à l'échelle individuelle, mais plutôt comment le parti gagnant a changé dans chaque section de vote.
 //
 // Chaque bureau de vote a sa section de vote, et les données de chaque section sont publiques [1]. On ne compte que les votes effectués le jour de l'élection, les votes à distance ou anticipés ne font pas partie de ces données. Pour visualiser la migration des votes, quoi de mieux qu'un diagramme de Sankey ?
@@ -46,7 +48,7 @@ const compte = d3.rollup(sections, (v) => v.length, (d) => d[`${DE}_gagnant`], (
 const n = (a, b) => compte.get(a)?.get(b) ?? 0;
 
 // Diagramme : à gauche, le parti premier dans la section en DE ; à droite, en VERS ; épaisseur des flux, nombre de sections. Un clic sur un parti met ses flux en évidence (d'où viennent ses sections, où elles vont) et estompe les autres ; les libellés de l'autre colonne donnent alors la part des sections du parti choisi. Un second clic, ou un clic hors des noeuds, rétablit l'ensemble.
-const L = 960, H = 480, MARGE = 120, HAUT = 28;
+const L = 960, H = 508, MARGE = 120, HAUT = 56;
 
 const liens = [];
 for (const a of partis) for (const b of partis) {
@@ -69,8 +71,10 @@ const svg = d3.create("svg").attr("viewBox", [0, 0, L, H]).attr("width", L).attr
 svg.append("rect").attr("width", L).attr("height", H).attr("fill", "transparent").on("click", () => choisir(null));
 
 // en-têtes de colonnes
-svg.append("text").attr("x", MARGE - 8).attr("y", 14).attr("text-anchor", "end").attr("fill", GRIS).text(`Premier en ${DE}`);
-svg.append("text").attr("x", L - MARGE + 8).attr("y", 14).attr("text-anchor", "start").attr("fill", GRIS).text(`Premier en ${VERS}`);
+// titre du graphique
+svg.append("text").attr("x", L / 2).attr("y", 16).attr("text-anchor", "middle").attr("fill", ENCRE).attr("font-weight", 600).style("font-size", "15px").text(`Migration du parti gagnant par section de vote, ${DE}-${VERS}`);
+svg.append("text").attr("x", MARGE - 8).attr("y", 42).attr("text-anchor", "end").attr("fill", GRIS).text(`Premier en ${DE}`);
+svg.append("text").attr("x", L - MARGE + 8).attr("y", 42).attr("text-anchor", "start").attr("fill", GRIS).text(`Premier en ${VERS}`);
 
 const gLiens = svg.append("g").attr("fill", "none").selectAll("path").data(graphe.links).join("path")
   .attr("d", sankeyMod.sankeyLinkHorizontal())

@@ -6,6 +6,8 @@
 // ---
 
 // %% [markdown]
+// > The calculations in this post can be [reproduced on tangent/note](https://note.tangent.to/gh/votovision/votovision.github.io/posts/en/2026-11_vote-migration/source.js).
+//
 // Votes migrated between 2022 and 2026. The vote is of course secret, but polling divisions let us roughly answer the question *who went where?* at the finest possible resolution. This approach won’t tell how individual voters moved, but rather how the winning party changed in each polling division.
 //
 // Each polling station has its polling division, and the data of each division are public [1]. Only the votes cast on election day are counted, and remote or advance votes are not part of these data. To visualize the migration of votes, what better than a Sankey diagram?
@@ -46,7 +48,7 @@ const compte = d3.rollup(sections, (v) => v.length, (d) => d[`${DE}_gagnant`], (
 const n = (a, b) => compte.get(a)?.get(b) ?? 0;
 
 // Diagram: on the left, the party first in the division in DE; on the right, in VERS; flow width, number of divisions. Clicking a party highlights its flows (where its divisions come from, where they go) and fades the others; the labels of the other column then give the share of the chosen party's divisions. A second click, or a click outside the nodes, restores everything.
-const L = 960, H = 480, MARGE = 120, HAUT = 28;
+const L = 960, H = 508, MARGE = 120, HAUT = 56;
 
 const liens = [];
 for (const a of partis) for (const b of partis) {
@@ -69,8 +71,10 @@ const svg = d3.create("svg").attr("viewBox", [0, 0, L, H]).attr("width", L).attr
 svg.append("rect").attr("width", L).attr("height", H).attr("fill", "transparent").on("click", () => choisir(null));
 
 // column headers
-svg.append("text").attr("x", MARGE - 8).attr("y", 14).attr("text-anchor", "end").attr("fill", GRIS).text(`First in ${DE}`);
-svg.append("text").attr("x", L - MARGE + 8).attr("y", 14).attr("text-anchor", "start").attr("fill", GRIS).text(`First in ${VERS}`);
+// chart title
+svg.append("text").attr("x", L / 2).attr("y", 16).attr("text-anchor", "middle").attr("fill", ENCRE).attr("font-weight", 600).style("font-size", "15px").text(`Migration of the winning party by polling division, ${DE}-${VERS}`);
+svg.append("text").attr("x", MARGE - 8).attr("y", 42).attr("text-anchor", "end").attr("fill", GRIS).text(`First in ${DE}`);
+svg.append("text").attr("x", L - MARGE + 8).attr("y", 42).attr("text-anchor", "start").attr("fill", GRIS).text(`First in ${VERS}`);
 
 const gLiens = svg.append("g").attr("fill", "none").selectAll("path").data(graphe.links).join("path")
   .attr("d", sankeyMod.sankeyLinkHorizontal())
