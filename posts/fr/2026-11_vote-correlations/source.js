@@ -450,3 +450,119 @@ Plot.plot({
 
 // %% [markdown]
 // À écrire : lecture.
+
+// %% [javascript] #collapse-cell
+// Étape 3. Régression multinomiale sur les comptes de 2026 (parti de référence : AUTRES) :
+// eta_ij = alpha[circonscription, j] + gamma_j · clr(x2022)_i (5 log-ratios) + beta_j · covariables_i.
+// Estimation par descente de gradient (Adam) sur la log-vraisemblance multinomiale moyenne par vote ;
+// tableaux typés et boucles simples : quelque 15 000 sections, 1 500 itérations.
+const J = PARTIS.length - 1, P_LAG = 5, P_COV = nomsRetenus.length, NU = unites.length;
+const listeCirc = [...indicesParCirconscription.keys()], rangCirc = new Map(listeCirc.map((c, k) => [c, k])), NC = listeCirc.length;
+const circDe = Int32Array.from(cepDe, (c) => rangCirc.get(c));
+const Cn = new Float64Array(NU * (J + 1)), Nn = new Float64Array(NU), Lf = new Float64Array(NU * P_LAG), Xf = new Float64Array(NU * P_COV);
+unites.forEach(({ v }, i) => {
+  PARTIS.forEach((p, j) => { Cn[i * (J + 1) + j] = Math.round(v[`2026_${p}`]); Nn[i] += Cn[i * (J + 1) + j]; });
+  for (let k = 0; k < P_LAG; k++) Lf[i * P_LAG + k] = clr22[i][k];
+  for (let k = 0; k < P_COV; k++) Xf[i * P_COV + k] = X[i][k];
+});
+const NPAR = NC * J + J * P_LAG + J * P_COV, OG = NC * J, OB = OG + J * P_LAG;
+// Parts prédites de la section i (J + 1 parts), avec les covariables x (Float64Array de P_COV) ou celles de la section.
+function partsDe(th, i, x, out) {
+  const r = circDe[i]; let mx = 0;
+  for (let j = 0; j < J; j++) {
+    let e = th[r * J + j];
+    for (let k = 0; k < P_LAG; k++) e += Lf[i * P_LAG + k] * th[OG + j * P_LAG + k];
+    for (let k = 0; k < P_COV; k++) e += (x ? x[k] : Xf[i * P_COV + k]) * th[OB + j * P_COV + k];
+    out[j] = e; if (e > mx) mx = e;
+  }
+  let z = Math.exp(-mx); for (let j = 0; j < J; j++) { out[j] = Math.exp(out[j] - mx); z += out[j]; }
+  out[J] = Math.exp(-mx); for (let j = 0; j <= J; j++) out[j] /= z;
+  return out;
+}
+function ajuster(lignes, depart = null, iterations = 1500, lr = 0.05) {
+  const th = depart ? Float64Array.from(depart) : new Float64Array(NPAR);
+  const m = new Float64Array(NPAR), v2 = new Float64Array(NPAR), G = new Float64Array(NPAR), p = new Float64Array(J + 1);
+  let Ntot = 0; for (const i of lignes) Ntot += Nn[i];
+  for (let t = 1; t <= iterations; t++) {
+    G.fill(0);
+    for (const i of lignes) {
+      partsDe(th, i, null, p); const r = circDe[i];
+      for (let j = 0; j < J; j++) {
+        const res = (Cn[i * (J + 1) + j] - Nn[i] * p[j]) / Ntot;
+        G[r * J + j] += res;
+        for (let k = 0; k < P_LAG; k++) G[OG + j * P_LAG + k] += res * Lf[i * P_LAG + k];
+        for (let k = 0; k < P_COV; k++) G[OB + j * P_COV + k] += res * Xf[i * P_COV + k];
+      }
+    }
+    const c1 = 1 - 0.9 ** t, c2 = 1 - 0.999 ** t;
+    for (let q = 0; q < NPAR; q++) {
+      m[q] = 0.9 * m[q] + 0.1 * G[q]; v2[q] = 0.999 * v2[q] + 0.001 * G[q] * G[q];
+      th[q] += lr * (m[q] / c1) / (Math.sqrt(v2[q] / c2) + 1e-8);
+    }
+  }
+  return th;
+}
+const toutes = d3.range(NU);
+const modele = ajuster(toutes);
+const logVraisemblance = (th) => { const p = new Float64Array(J + 1); let ll = 0, N = 0; for (const i of toutes) { partsDe(th, i, null, p); for (let j = 0; j <= J; j++) ll += Cn[i * (J + 1) + j] * Math.log(Math.max(p[j], 1e-12)); N += Nn[i]; } return ll / N; };
+
+// Surdispersion : chi² de Pearson par degré de liberté.
+const surdispersion = (() => {
+  const p = new Float64Array(J + 1); let chi2 = 0;
+  for (const i of toutes) { partsDe(modele, i, null, p); for (let j = 0; j <= J; j++) { const mu = Nn[i] * p[j]; if (mu > 0) chi2 += (Cn[i * (J + 1) + j] - mu) ** 2 / mu; } }
+  return chi2 / (NU * J - NPAR);
+})();
+
+// Effets moyens en points : covariable déplacée de son 10e à son 90e centile intra-circonscription, autres fixes,
+// moyenne pondérée par les votes des écarts de parts prédites.
+const ecartsP10P90 = nomsRetenus.map((_, k) => { const v = Xc.map((r) => r[k]); return d3.quantile(v, 0.9) - d3.quantile(v, 0.1); });
+function effets(th, lignes = toutes) {
+  const ph = new Float64Array(J + 1), pb = new Float64Array(J + 1), xh = new Float64Array(P_COV), xb = new Float64Array(P_COV);
+  let W = 0; for (const i of lignes) W += poids[i];
+  return nomsRetenus.flatMap((nom, k) => {
+    const acc = new Float64Array(J + 1);
+    for (const i of lignes) {
+      for (let q = 0; q < P_COV; q++) { xh[q] = xb[q] = Xf[i * P_COV + q]; }
+      xh[k] += ecartsP10P90[k] / 2; xb[k] -= ecartsP10P90[k] / 2;
+      partsDe(th, i, xh, ph); partsDe(th, i, xb, pb);
+      for (let j = 0; j <= J; j++) acc[j] += poids[i] * (ph[j] - pb[j]);
+    }
+    return PARTIS.map((p, j) => ({ covariable: nom, parti: p, points: 100 * acc[j] / W }));
+  });
+}
+const effetsPoints = effets(modele);
+
+// Incertitude : bootstrap par circonscription (50 tirages, départ au modèle ajusté, 150 itérations).
+const bootstrap = (() => {
+  let graine = 23; const alea = () => ((graine = (graine * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const tirages = [];
+  for (let k = 0; k < 50; k++) {
+    const lignes = d3.range(NC).flatMap(() => indicesParCirconscription.get(listeCirc[Math.floor(alea() * NC)]));
+    tirages.push(effets(ajuster(lignes, modele, 150), lignes));
+  }
+  return effetsPoints.map((d, q) => ({ ...d, bas: d3.quantile(tirages.map((t) => t[q].points), 0.05), haut: d3.quantile(tirages.map((t) => t[q].points), 0.95) }));
+})();
+
+// Rang réduit : valeurs singulières de la matrice des coefficients des covariables (J x P_COV).
+const coefficientsCovariables = d3.range(J).map((j) => Array.from(modele.subarray(OB + j * P_COV, OB + (j + 1) * P_COV)));
+const rangReduit = valeursPropres(d3.range(J).map((p) => d3.range(J).map((q) => d3.sum(coefficientsCovariables[p], (x, k) => x * coefficientsCovariables[q][k]))));
+
+({ surdispersion, logVraisemblance: logVraisemblance(modele), partRang2: d3.sum(rangReduit.slice(0, 2), (d) => d.valeur) / d3.sum(rangReduit, (d) => d.valeur) })
+
+// %% [markdown]
+// À écrire : modèle multinomial, surdispersion, effets en points.
+
+// %% [javascript]
+// Effets moyens en points de pourcentage (10e au 90e centile intra-circonscription), intervalle de bootstrap à 90 %.
+Plot.plot({
+  width: 760, height: 900, marginLeft: 230, marginRight: 20,
+  fx: { domain: PARTIS, label: null }, x: { label: "points de pourcentage", grid: true }, y: { domain: nomsRetenus, label: null },
+  marks: [
+    Plot.ruleX([0]),
+    Plot.ruleY(bootstrap, { fx: "parti", y: "covariable", x1: "bas", x2: "haut", stroke: "#8B887A" }),
+    Plot.dot(bootstrap, { fx: "parti", y: "covariable", x: "points", fill: "#2A2E24", r: 2.5 }),
+  ],
+})
+
+// %% [markdown]
+// À écrire : lecture des effets ; associations entre sections, effet du vote anticipé sur l'âge.
