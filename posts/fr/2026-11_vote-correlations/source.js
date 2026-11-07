@@ -5,6 +5,15 @@
 // ---
 
 // %% [markdown]
+// Note pour l'auteur : trame proposée pour le texte. Les notes qui suivent, avant chaque figure, disent ce qu'elle montre et pourquoi elle est là. Elles ne sont pas la prose du billet.
+//
+// 1. La question. Un ami demande si la migration du vote de 2022 à 2026 s'explique par le profil des quartiers. L'explication courante, « les gens étaient tannés de la CAQ », ne dit pas qui, ni où.
+// 2. Ce qu'on peut mesurer. Les votes par groupe de sections (jour du scrutin et vote par anticipation), le recensement de 2021 interpolé sur ces groupes, et le vote de 2022 transposé. Ce sont des associations entre quartiers, pas des comportements individuels.
+// 3. D'où viennent les différences de vote. La partition de la déviance : la circonscription explique 90 % des différences entre groupes ; le profil, au plus 5 %. Le vote se joue d'abord localement.
+// 4. À l'intérieur des circonscriptions, quel profil bouge vers qui. La carte de chaleur et le biplot : la scolarité et la langue séparent le PLQ du PQ et du PCQ ; la religion isole QS ; la CAQ recule partout de la même façon.
+// 5. Ce qui reste entre voisins. Le I de Moran : une fois le profil et le vote de 2022 retirés, les groupes voisins se ressemblent encore un peu.
+// 6. Robustesse et limites. Les quatre variantes, l'erreur écologique, le recensement de 2021, le vote de 2022 transposé.
+//
 // À écrire : objet de l'analyse et question posée.
 
 // %% [javascript] #collapse-cell
@@ -74,6 +83,8 @@ figure("Données analysées", "Une unité est un groupe de sections de vote dess
 ], [1]))
 
 // %% [markdown]
+// Note pour l'auteur : ce tableau situe l'analyse. L'unité est le groupe de sections desservies par un même bureau de vote par anticipation, parce que le vote par anticipation est publié à cette échelle. Les deux derniers nombres montrent ce que l'on gagne : le vote par anticipation représente plus du tiers des votes comptés.
+//
 // À écrire : données, unité d'analyse, votes couverts.
 
 // %% [javascript]
@@ -83,30 +94,9 @@ figure("Covariables tirées du recensement de 2021",
   table(["Covariable", "Unité", "Médiane", "Un écart type au-dessus"], R.contrasts.map((c) => [c.label, c.unit, display(c, c.median), display(c, c.oneSdAbove)]), [2, 3]))
 
 // %% [markdown]
+// Note pour l'auteur : ce tableau définit chaque covariable et donne son échelle. La colonne « un écart type au-dessus » est la clé de lecture de toute la suite : chaque effet plus bas compare deux groupes qui diffèrent de cet écart. Par exemple, un demi-an d'études pour la scolarité, ou 30 % contre 47 % de locataires.
+//
 // À écrire : définition des covariables (moyennes en unités réelles, compositions).
-
-// %% [javascript]
-// Paires de covariables corrélées (|r| >= 0,5), hors catégories d'une même variable nominale.
-const correlatedPairs = d3.sort(R.contrasts.flatMap((a, i) => R.contrasts.slice(i + 1).map((b, k) => ({ a, b, r: R.correlations[i][i + 1 + k] })))
-  .filter((d) => Math.abs(d.r) >= 0.5 && !(d.a.block && d.a.block === d.b.block)), (d) => -Math.abs(d.r));
-figure("Covariables qui varient ensemble",
-  "Corrélations d'au moins 0,5 en valeur absolue, mesurées entre les groupes de sections d'une même circonscription.",
-  table(["Covariable", "Covariable", "Corrélation"], correlatedPairs.map((d) => [d.a.label, d.b.label, number(d.r, 2)]), [2]))
-
-// %% [javascript]
-// Facteur d'inflation de la variance des covariables scalaires dans le modèle complet.
-const inflation = R.varianceInflation.map((d) => ({ label: contrastByKey.get(d.key).label, vif: d.vif }));
-figure("Redondance de chaque covariable avec toutes les autres",
-  "Facteur d'inflation de la variance. À 1, la covariable ne dépend pas des autres. Au-delà de 5 (pointillé), son effet se sépare mal de celui des autres.",
-  Plot.plot({
-    width: 760, height: 40 + 22 * inflation.length, marginLeft: 400,
-    x: { label: "facteur d'inflation de la variance", grid: true }, y: { label: null, domain: d3.sort(inflation, (d) => -d.vif).map((d) => d.label) },
-    marks: [Plot.barX(inflation, { x: "vif", y: "label", fill: GREY }), Plot.ruleX([0]), Plot.ruleX([5], { stroke: INK, strokeDasharray: "3,3" }),
-      Plot.text(inflation, { x: "vif", y: "label", text: (d) => number(d.vif, 1), dx: 4, textAnchor: "start" })],
-  }))
-
-// %% [markdown]
-// À écrire : redondances entre covariables.
 
 // %% [javascript]
 // Partition de la déviance explicable (déviance du modèle « province seulement » moins le bruit du dépouillement).
@@ -132,6 +122,8 @@ figure("Ce qui explique les différences de vote entre groupes de sections en 20
   }))
 
 // %% [markdown]
+// Note pour l'auteur : c'est la réponse principale. La déviance mesure l'écart entre les votes observés et les votes que le modèle prédit. Un modèle qui ne connaît que la province a la déviance la plus grande. Chaque terme ajouté la réduit, et la figure donne la part de cette réduction due à chaque terme. Le hasard du dépouillement est retiré du total, parce qu'aucun modèle ne peut l'expliquer. Lecture : la circonscription explique 90 % des différences de vote entre groupes de sections. Le vote de 2022 du groupe et son profil expliquent chacun moins de 7 %, et ils se recoupent. Il reste 2 % que rien de mesuré n'explique.
+//
 // À écrire : lecture de la partition.
 
 // %% [javascript]
@@ -161,6 +153,8 @@ for (const g of GROUPS) {
 effectMaps
 
 // %% [markdown]
+// Note pour l'auteur : la carte de chaleur détaille les 5 % du profil. Chaque case est l'écart de part de vote entre deux groupes d'une même circonscription qui ont le même vote de 2022 et le même profil, sauf sur la covariable de la rangée, où le premier est un écart type plus haut. Lecture : la scolarité est la covariable la plus liée au vote, avec +1,3 point pour le PLQ et −0,8 pour le PQ et le PCQ par demi-an d'études. La langue maternelle française joue en sens inverse. La religion ne compte que pour QS. La CAQ n'a aucun effet au-dessus de 0,4 point : son recul ne suit pas le profil des quartiers.
+//
 // À écrire : lecture des effets ; rappels : associations entre groupes de sections, 192 cases sans correction pour les comparaisons multiples.
 
 // %% [javascript]
@@ -189,6 +183,8 @@ figure("Les covariables et les partis dans un même plan",
   }))
 
 // %% [markdown]
+// Note pour l'auteur : le biplot résume la carte de chaleur en deux axes. C'est l'équivalent d'une RDA pour le modèle multinomial. Une RDA fait l'analyse en composantes principales de la partie de la réponse expliquée par les covariables. Ici, la réponse est le vote prédit en log-ratios, la partie expliquée est celle des covariables, une fois la circonscription et le vote de 2022 retirés, et les axes sont ceux de cette partie. Les flèches sont les covariables, en coordonnées principales. Les points sont les partis, en coordonnées standard, mis à l'échelle des flèches. Lecture : l'axe 1 (55 %) oppose le PLQ, du côté de la scolarité et de l'anglais, au PQ et au PCQ, du côté du français et du taux d'activité. L'axe 2 (27 %) isole QS, du côté des personnes sans religion et à faible revenu.
+//
 // À écrire : lecture du biplot.
 
 // %% [javascript]
@@ -206,7 +202,34 @@ figure("Ressemblance entre groupes de sections voisins, une fois le modèle reti
   }))
 
 // %% [markdown]
+// Note pour l'auteur : cette figure répond à l'idée que les gens votent comme leurs voisins. Après le modèle, chaque groupe garde un écart entre son vote observé et son vote prédit. Le I de Moran dit si les groupes voisins ont des écarts semblables. Avec la circonscription seule, il vaut 0,13 à 0,44 : les voisins bougent ensemble. Avec le vote de 2022 et le profil, il tombe à 0,08 à 0,14, mais reste positif, et le test par permutation le confirme (p ≤ 0,005). Une partie de la ressemblance entre voisins tient donc au profil, et une autre partie à autre chose. Cette autre partie peut être l'entourage, un candidat, une campagne locale ou un enjeu de quartier. Les données ne permettent pas de trancher.
+//
 // À écrire : ce qui reste de commun entre groupes voisins une fois le profil et le vote de 2022 pris en compte.
+
+// %% [javascript]
+// Paires de covariables corrélées (|r| >= 0,5), hors catégories d'une même variable nominale.
+const correlatedPairs = d3.sort(R.contrasts.flatMap((a, i) => R.contrasts.slice(i + 1).map((b, k) => ({ a, b, r: R.correlations[i][i + 1 + k] })))
+  .filter((d) => Math.abs(d.r) >= 0.5 && !(d.a.block && d.a.block === d.b.block)), (d) => -Math.abs(d.r));
+figure("Covariables qui varient ensemble",
+  "Corrélations d'au moins 0,5 en valeur absolue, mesurées entre les groupes de sections d'une même circonscription.",
+  table(["Covariable", "Covariable", "Corrélation"], correlatedPairs.map((d) => [d.a.label, d.b.label, number(d.r, 2)]), [2]))
+
+// %% [javascript]
+// Facteur d'inflation de la variance des covariables scalaires dans le modèle complet.
+const inflation = R.varianceInflation.map((d) => ({ label: contrastByKey.get(d.key).label, vif: d.vif }));
+figure("Redondance de chaque covariable avec toutes les autres",
+  "Facteur d'inflation de la variance. À 1, la covariable ne dépend pas des autres. Au-delà de 5 (pointillé), son effet se sépare mal de celui des autres.",
+  Plot.plot({
+    width: 760, height: 40 + 22 * inflation.length, marginLeft: 400,
+    x: { label: "facteur d'inflation de la variance", grid: true }, y: { label: null, domain: d3.sort(inflation, (d) => -d.vif).map((d) => d.label) },
+    marks: [Plot.barX(inflation, { x: "vif", y: "label", fill: GREY }), Plot.ruleX([0]), Plot.ruleX([5], { stroke: INK, strokeDasharray: "3,3" }),
+      Plot.text(inflation, { x: "vif", y: "label", text: (d) => number(d.vif, 1), dx: 4, textAnchor: "start" })],
+  }))
+
+// %% [markdown]
+// Note pour l'auteur : ces deux figures sont des vérifications. Deux covariables corrélées se partagent l'effet, et le modèle ne peut pas dire lequel des deux compte. Le facteur d'inflation de la variance mesure cette difficulté. Le faible revenu (5,9) et la scolarité (5,2) dépassent 5 : leurs effets sont moins précis, ce que les intervalles reflètent déjà. Ces figures peuvent aller en note de fin.
+//
+// À écrire : redondances entre covariables.
 
 // %% [javascript]
 // Robustesse : quatre variantes comparées à l'analyse principale.
@@ -222,4 +245,6 @@ figure("Les effets tiennent-ils si on change l'analyse ?",
     variants.map(([title, v, units]) => [title, number(units), number(v.correlation, 2), number(v.largestGap, 2)]), [1, 2, 3]))
 
 // %% [markdown]
+// Note pour l'auteur : les quatre variantes vérifient que les effets ne dépendent pas d'un choix d'analyse. Sans le vote par anticipation, les effets changent peu (corrélation 0,97). Par bureau de vote du jour du scrutin, l'unité la plus fine, ils changent davantage (0,88). Les 497 groupes au découpage inchangé donnent la vérification la plus bruitée (0,77), parce qu'ils sont peu nombreux. La table des années d'études n'a aucun poids (1,00).
+//
 // À écrire : robustesse et limites (erreur écologique, recensement de 2021, transposition du vote de 2022, vote par anticipation de 2022 réparti puis transposé).
