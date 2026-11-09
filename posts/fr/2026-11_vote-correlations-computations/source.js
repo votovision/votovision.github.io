@@ -436,6 +436,25 @@ const effectsTable = design.contrasts.flatMap((c, a) => PARTIES.map((party, k) =
   return { contrast: c.key, party, points: pointEffects[a * K + k], low: d3.quantile(t, 0.025), high: d3.quantile(t, 0.975), logRatio: centredLogRatios[a][k] };
 }));
 
+// Profil et vote de 2026, sans le vote de 2022 : mêmes contrastes, modèle avec la circonscription et les covariables seulement
+// (m2b). Ces effets décrivent qui vote pour qui en 2026 ; ceux du modèle complet, ce qui a changé depuis 2022.
+const levelContrasts = design.contrasts.map((c) => ({ ...c, delta: c.delta.slice(design.nLag) }));
+const levelPointEffects = effects(m2b, levelContrasts);
+const levelBootstrap = (() => {
+  const random = generator(29), G = data.nGroups, draws = [];
+  for (let b = 0; b < 199; b++) {
+    const weights = new Float64Array(G); for (let g = 0; g < G; g++) weights[Math.floor(random() * G)]++;
+    draws.push(effects(fit(data, { Z: m2b.Z, q: m2b.q, weights, start: m2b, rounds: 2 }), levelContrasts, { weights }));
+  }
+  return draws;
+})();
+const levelEffectsTable = design.contrasts.flatMap((c, a) => PARTIES.map((party, k) => {
+  const t = levelBootstrap.map((b) => b[a * K + k]);
+  return { contrast: c.key, party, points: levelPointEffects[a * K + k], low: d3.quantile(t, 0.025), high: d3.quantile(t, 0.975) };
+}));
+// Part de chaque parti dans les votes de 2026 des groupes analysés, pour situer les effets.
+const partyShares = Object.fromEntries(PARTIES.map((p, k) => [p, d3.sum(d3.range(n), (i) => Y[i * K + k]) / d3.sum(N)]));
+
 // Ordination des effets en log-ratios (contrastes x partis) : décomposition en valeurs propres de E'E. Elle porte sur les
 // cinq principaux partis, log-ratios recentrés entre eux : dans un log-ratio centré, une petite catégorie (les autres
 // partis) pèse autant qu'une grande et dominerait les axes.
@@ -477,7 +496,7 @@ const results = {
   units: { count: n, excluded: data.excluded, sections: d3.sum(data.units, (u) => u.sections), ridings: data.nGroups, votes: d3.sum(N), ...voteTotals },
   contrasts: design.contrasts.map((c) => ({ key: c.key, block: c.block, label: c.label, unit: c.unit, percent: c.percent, median: c.median, oneSdAbove: c.oneSdAbove })),
   correlations, varianceInflation, deviance: devianceTable, noise, overdispersion, spatialAutocorrelation,
-  effects: effectsTable, ordination, robustness,
+  effects: effectsTable, levelEffects: levelEffectsTable, partyShares, ordination, robustness,
 };
 typeof document === "undefined" ? results : (() => {
   const link = document.createElement("a");

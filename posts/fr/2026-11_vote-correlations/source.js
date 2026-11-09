@@ -10,9 +10,10 @@
 // 1. La question. Un ami demande si la migration du vote de 2022 à 2026 s'explique par le profil des quartiers. L'explication courante, « les gens étaient tannés de la CAQ », ne dit pas qui, ni où.
 // 2. Ce qu'on peut mesurer. Les votes par groupe de sections (jour du scrutin et vote par anticipation), le recensement de 2021 interpolé sur ces groupes, et le vote de 2022 transposé. Ce sont des associations entre quartiers, pas des comportements individuels.
 // 3. D'où viennent les différences de vote. La partition de la déviance : la circonscription explique 90 % des différences entre groupes ; le profil, au plus 5 %. Le vote se joue d'abord localement.
-// 4. À l'intérieur des circonscriptions, quel profil bouge vers qui. La carte de chaleur et le biplot : la scolarité et la langue séparent le PLQ du PQ et du PCQ ; la religion isole QS ; la CAQ recule partout de la même façon.
-// 5. Ce qui reste entre voisins. Le I de Moran : une fois le profil et le vote de 2022 retirés, les groupes voisins se ressemblent encore un peu.
-// 6. Robustesse et limites. Les quatre variantes, l'erreur écologique, le recensement de 2021, le vote de 2022 transposé.
+// 4. À l'intérieur des circonscriptions, qui vote pour qui en 2026. Première carte de chaleur, sans le vote de 2022 : la langue, la scolarité et la religion séparent nettement les partis.
+// 5. Qui a bougé depuis 2022. Seconde carte de chaleur et biplot, à vote de 2022 égal : les effets sont deux à trois fois plus petits. La scolarité et la langue séparent encore le PLQ du PQ et du PCQ ; la religion isole QS ; la CAQ recule partout de la même façon.
+// 6. Ce qui reste entre voisins. Le I de Moran : une fois le profil et le vote de 2022 retirés, les groupes voisins se ressemblent encore un peu.
+// 7. Robustesse et limites. Les quatre variantes, l'erreur écologique, le recensement de 2021, le vote de 2022 transposé.
 //
 // À écrire : objet de l'analyse et question posée.
 
@@ -40,6 +41,7 @@ const PLAN = {
     "2026-11-06 : le type de logement, le revenu médian et la part des ménages d'une personne sont retirés (redondants avec la densité de la population, le faible revenu et la taille des ménages)",
     "2026-11-06 : l'unité passe de la section au groupe de sections d'un bureau de vote par anticipation, pour inclure le vote par anticipation (publié par bureau) ; l'analyse par bureau de vote du jour du scrutin devient une analyse de robustesse",
     "2026-11-06 : les effets sont donnés pour un écart type de la covariable plutôt que pour un écart interdécile",
+    "2026-11-08 : ajout des effets sans le vote de 2022 (qui vote pour qui en 2026), à côté des effets à vote de 2022 égal (ce qui a changé)",
   ],
   nonFait: ["interpolation du recensement par surface plutôt que par électeurs", "validation croisée par région administrative"],
 };
@@ -63,6 +65,33 @@ function figure(title, note, ...content) {
   const heading = document.createElement("div"); heading.textContent = title; heading.style.fontWeight = 600; f.append(heading);
   if (note) { const p = document.createElement("div"); p.textContent = note; p.style.fontSize = "0.85rem"; p.style.color = "#5E5B50"; p.style.margin = "0.2rem 0 0.6rem"; p.style.maxWidth = "46rem"; f.append(p); }
   f.append(...content); return f;
+}
+// Carte de chaleur d'un tableau d'effets (contraste x parti), en points de pourcentage pour un écart type.
+const includesZero = (d) => d.low <= 0 && d.high >= 0;
+const signed = (v) => (Math.abs(v) < 0.005 ? "0,00" : `${v > 0 ? "+" : ""}${number(v, 2)}`);
+function effectMap(effects, title, note) {
+  const byContrast = d3.group(effects, (d) => d.contrast), map = figure(title, note);
+  const shares = document.createElement("div"); shares.style.fontSize = "0.8rem"; shares.style.color = "#5E5B50";
+  shares.textContent = `Part des votes de 2026 dans les groupes analysés : ${PARTIES.map((p) => `${PARTY_NAME[p]} ${number(100 * R.partyShares[p], 0)} %`).join(", ")}.`;
+  map.append(shares);
+  for (const g of GROUPS) {
+    const rows = g.keys.flatMap((k) => byContrast.get(k));
+    const subtitle = document.createElement("div"); subtitle.textContent = g.title; subtitle.style.fontWeight = 600; subtitle.style.fontSize = "0.9rem"; subtitle.style.marginTop = "0.8rem";
+    map.append(subtitle, Plot.plot({
+      width: 760, height: 36 + 26 * g.keys.length, marginLeft: 400, marginTop: 22, marginBottom: 4,
+      x: { domain: PARTIES, label: null, axis: "top", tickFormat: (p) => PARTY_NAME[p], tickSize: 0 },
+      y: { domain: g.keys, label: null, tickFormat: (k) => contrastByKey.get(k).label, tickSize: 0 },
+      color: { type: "diverging", scheme: "RdBu", domain: [-2, 2], clamp: true },
+      marks: [
+        Plot.cell(rows.filter((d) => !includesZero(d)), { x: "party", y: "contrast", fill: "points", inset: 0.5 }),
+        Plot.cell(rows.filter(includesZero), { x: "party", y: "contrast", fill: PALE, inset: 0.5 }),
+        Plot.text(rows, { x: "party", y: "contrast", text: (d) => signed(d.points), fontSize: 10,
+          fill: (d) => (!includesZero(d) && Math.abs(d.points) > 1.3 ? "white" : INK),
+          title: (d) => `${PARTY_NAME[d.party]} : ${number(d.points, 2)} point [${number(d.low, 2)} ; ${number(d.high, 2)}]` }),
+      ],
+    }));
+  }
+  return map;
 }
 // Tableau : en-têtes, rangées (tableaux de cellules), colonnes alignées à droite.
 function table(headers, rows, rightAligned = []) {
@@ -127,33 +156,22 @@ figure("Ce qui explique les différences de vote entre groupes de sections en 20
 // À écrire : lecture de la partition.
 
 // %% [javascript]
-// Cartes de chaleur des effets, en points de pourcentage pour un écart type.
-const effectsByContrast = d3.group(R.effects, (d) => d.contrast);
-const includesZero = (d) => d.low <= 0 && d.high >= 0;
-const signed = (v) => (Math.abs(v) < 0.005 ? "0,00" : `${v > 0 ? "+" : ""}${number(v, 2)}`);
-const effectMaps = figure("Écart de part de vote en 2026 associé à chaque covariable, en points de pourcentage",
-  "Écart de part de vote entre deux groupes de sections d'une même circonscription, le premier un écart type plus haut sur la covariable, à vote de 2022 et autres covariables égaux. Case grise : l'intervalle à 95 % contient zéro.");
-for (const g of GROUPS) {
-  const rows = g.keys.flatMap((k) => effectsByContrast.get(k));
-  const subtitle = document.createElement("div"); subtitle.textContent = g.title; subtitle.style.fontWeight = 600; subtitle.style.fontSize = "0.9rem"; subtitle.style.marginTop = "0.8rem";
-  effectMaps.append(subtitle, Plot.plot({
-    width: 760, height: 36 + 26 * g.keys.length, marginLeft: 400, marginTop: 22, marginBottom: 4,
-    x: { domain: PARTIES, label: null, axis: "top", tickFormat: (p) => PARTY_NAME[p], tickSize: 0 },
-    y: { domain: g.keys, label: null, tickFormat: (k) => contrastByKey.get(k).label, tickSize: 0 },
-    color: { type: "diverging", scheme: "RdBu", domain: [-1.5, 1.5], clamp: true },
-    marks: [
-      Plot.cell(rows.filter((d) => !includesZero(d)), { x: "party", y: "contrast", fill: "points", inset: 0.5 }),
-      Plot.cell(rows.filter(includesZero), { x: "party", y: "contrast", fill: PALE, inset: 0.5 }),
-      Plot.text(rows, { x: "party", y: "contrast", text: (d) => signed(d.points), fontSize: 10,
-        fill: (d) => (!includesZero(d) && Math.abs(d.points) > 1 ? "white" : INK),
-        title: (d) => `${PARTY_NAME[d.party]} : ${number(d.points, 2)} point [${number(d.low, 2)} ; ${number(d.high, 2)}]` }),
-    ],
-  }));
-}
-effectMaps
+// Carte de chaleur du profil et du vote de 2026, sans le vote de 2022 (modèle avec la circonscription et les covariables).
+effectMap(R.levelEffects, "Écart de part de vote en 2026, en points de pourcentage",
+  "Écart entre deux groupes de sections d'une même circonscription, le premier un écart type plus haut sur la covariable, les autres covariables égales. Le vote de 2022 n'est pas pris en compte. Case grise : l'intervalle à 95 % contient zéro.")
 
 // %% [markdown]
-// Note pour l'auteur : la carte de chaleur détaille les 5 % du profil. Chaque case est l'écart de part de vote entre deux groupes d'une même circonscription qui ont le même vote de 2022 et le même profil, sauf sur la covariable de la rangée, où le premier est un écart type plus haut. Lecture : la scolarité est la covariable la plus liée au vote, avec +1,3 point pour le PLQ et −0,8 pour le PQ et le PCQ par demi-an d'études. La langue maternelle française joue en sens inverse. La religion ne compte que pour QS. La CAQ n'a aucun effet au-dessus de 0,4 point : son recul ne suit pas le profil des quartiers.
+// Note pour l'auteur : cette carte répond à la question « qui vote pour qui en 2026 ? », à l'intérieur des circonscriptions. Elle ne tient pas compte du vote de 2022. Lecture : la langue maternelle est la covariable la plus liée au vote, avec −2,4 points pour le PLQ et +1,5 pour le PQ là où le français est plus répandu. La scolarité vient ensuite (+1,8 pour le PLQ, −2,0 pour le PCQ). La religion sépare la CAQ (catholiques) de QS (sans religion). La carte suivante pose une autre question : à vote de 2022 égal, qu'est-ce qui a changé ? La comparaison des deux montre que le profil explique bien le vote, mais peu son changement.
+//
+// À écrire : qui vote pour qui en 2026.
+
+// %% [javascript]
+// Carte de chaleur du changement depuis 2022 (modèle complet), en points de pourcentage pour un écart type.
+effectMap(R.effects, "Écart de part de vote en 2026, à vote de 2022 égal, en points de pourcentage",
+  "Écart entre deux groupes de sections d'une même circonscription qui avaient le même vote en 2022, le premier un écart type plus haut sur la covariable, les autres covariables égales. Case grise : l'intervalle à 95 % contient zéro.")
+
+// %% [markdown]
+// Note pour l'auteur : cette seconde carte détaille les 5 % du profil. Chaque case est l'écart de part de vote entre deux groupes d'une même circonscription qui ont le même vote de 2022 et le même profil, sauf sur la covariable de la rangée, où le premier est un écart type plus haut. Lecture : la scolarité est la covariable la plus liée au vote, avec +1,3 point pour le PLQ et −0,8 pour le PQ et le PCQ par demi-an d'études. La langue maternelle française joue en sens inverse. La religion ne compte que pour QS. La CAQ n'a aucun effet au-dessus de 0,4 point : son recul ne suit pas le profil des quartiers.
 //
 // À écrire : lecture des effets ; rappels : associations entre groupes de sections, 192 cases sans correction pour les comparaisons multiples.
 
