@@ -21,7 +21,7 @@ const T = {
     resultsHead: "<th>Parti</th><th>Sièges</th><th>Prévision</th><th>Vote</th><th>Vote prévu</th>",
     resultsNote: (hits, n, src) => `Prévision : scénario médian des sièges (intervalle à 90 %) et part des votes utilisée par le modèle, au dernier calcul avant le scrutin. ` +
       `Le favori de la prévision a été élu dans ${hits} circonscriptions sur ${n}. Source : ${src}.`,
-    resultsSource: (prelim, x) => `Elections BC, ${prelim ? "résultats préliminaires" : "résultats"}${x ? `, ${x} des urnes dépouillées` : ""}`,
+    resultsSource: (prelim, x) => `Elections BC, ${prelim ? "résultats préliminaires" : "résultats du décompte final"}${x ? `, ${x} des urnes dépouillées` : ""}`,
     gallagherQc: "17,8 au Québec en 2026",
     gallagherCa: (g) => `${formatNumber(g, 1)} au Canada en 2025`,
     gallagherBc: (g) => `${formatNumber(g, 1)} en Colombie-Britannique en 2024`,
@@ -70,7 +70,7 @@ const T = {
     resultsHead: "<th>Party</th><th>Seats</th><th>Forecast</th><th>Vote</th><th>Forecast vote</th>",
     resultsNote: (hits, n, src) => `Forecast: median seat scenario (90% interval) and vote shares used by the model, at the last run before the vote. ` +
       `The forecast favourite was elected in ${hits} of ${n} ridings. Source: ${src}.`,
-    resultsSource: (prelim, x) => `Elections BC, ${prelim ? "preliminary results" : "results"}${x ? `, ${x} of ballot boxes reported` : ""}`,
+    resultsSource: (prelim, x) => `Elections BC, ${prelim ? "preliminary results" : "final count results"}${x ? `, ${x} of ballot boxes reported` : ""}`,
     gallagherQc: "17.8 in Quebec in 2026",
     gallagherCa: (g) => `${formatNumber(g, 1)} in Canada in 2025`,
     gallagherBc: (g) => `${formatNumber(g, 1)} in British Columbia in 2024`,

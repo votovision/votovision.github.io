@@ -19,6 +19,7 @@ const T = {
     eveLeader: (p, x) => `Prévision de la veille : ${p} en tête à ${x}`,
     favourites: (n, t) => `Favori de la prévision élu dans ${n} circonscriptions sur ${t}`,
     reporting: (x) => `Elections BC · ${x} des urnes dépouillées · votes par la poste comptés au décompte final`,
+    finalCount: "Elections BC · résultats du décompte final",
   },
   en: {
     name: { qc: "Quebec", bc: "British Columbia", ca: "Canada" }, short: { bc: "B.C." }, party: "Party", forecast: (a) => (a ? `${a} forecast` : "Forecast"), interval: "90% interval",
@@ -32,6 +33,7 @@ const T = {
     eveLeader: (p, x) => `Eve-of-election forecast: ${p} ahead at ${x}`,
     favourites: (n, t) => `Forecast favourite elected in ${n} of ${t} ridings`,
     reporting: (x) => `Elections BC · ${x} of ballot boxes reported · mail-in ballots counted at the final count`,
+    finalCount: "Elections BC · final count results",
   },
 }[LANG];
 
@@ -217,7 +219,7 @@ function summariseResults(proj, results, P, host) {
   const reporting = results.provenance.match(/([\d.]+) % des urnes/)?.[1];
   const note = document.createElement("p");
   note.className = "computed-on";
-  note.textContent = reporting ? T.reporting(formatPercent(Number(reporting) / 100, 2)) : results.provenance;
+  note.textContent = !results.preliminary ? T.finalCount : reporting ? T.reporting(formatPercent(Number(reporting) / 100, 2)) : results.provenance;
   host.appendChild(note);
 }
 
