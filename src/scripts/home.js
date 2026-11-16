@@ -12,7 +12,7 @@ const T = {
     majority: (n) => `Majorité : ${n} sièges`, seatsOf: (p, n) => `${p} : ${n} sièges`,
     house: (t, n) => `${t} sièges · majorité : ${n}`,
     first: (p) => `${p} avec le plus de sièges`, majorityGov: "Gouvernement majoritaire",
-    asOf: (d, n) => `Sondages au ${d} · ${n} sondages`, unavailable: "Prévision indisponible.", live: (d) => `Élections du ${d}`, next: (d) => `Prochaines élections : au plus tard le ${d}`,
+    asOf: (d, n) => `Sondages au ${d} · ${n} sondages`, unavailable: "Prévision indisponible.", live: (d) => `Élections du ${d}`,
     colon: " :",
     results: (d, prelim) => `${prelim ? "Résultats préliminaires" : "Résultats"} · ${formatDate(d)}`,
     seats: "Sièges", vote: "Vote", eve: "Prévision",
@@ -26,7 +26,7 @@ const T = {
     majority: (n) => `Majority: ${n} seats`, seatsOf: (p, n) => `${p}: ${n} seats`,
     house: (t, n) => `${t} seats · majority: ${n}`,
     first: (p) => `${p} with the most seats`, majorityGov: "Majority government",
-    asOf: (d, n) => `Polls as of ${d} · ${n} polls`, unavailable: "Forecast unavailable.", live: (d) => `Election on ${d}`, next: (d) => `Next election: by ${d}`,
+    asOf: (d, n) => `Polls as of ${d} · ${n} polls`, unavailable: "Forecast unavailable.", live: (d) => `Election on ${d}`,
     colon: ":",
     results: (d, prelim) => `${prelim ? "Preliminary results" : "Results"} · ${formatDate(d)}`,
     seats: "Seats", vote: "Vote", eve: "Forecast",
@@ -117,12 +117,6 @@ function summarise(election, proj, results) {
     badge.className = "live-badge";
     badge.textContent = T.live(formatDate(proj.meta.electionDate));
     tile.querySelector("h2").after(badge);
-  } else if (days !== null && days > 60) {
-    // Otherwise, the date by which the next election must be held (fixed-date law; it can come sooner).
-    const next = document.createElement("p");
-    next.className = "next-election";
-    next.textContent = T.next(formatDate(proj.meta.electionDate));
-    host.closest(".tile.election").querySelector("h2").after(next);
   }
 
   const { bar, order, seats, threshold } = seatBar(proj, P);

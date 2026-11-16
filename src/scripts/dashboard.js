@@ -9,9 +9,8 @@
 
 import * as Plot from "@observablehq/plot";
 import { mva } from "@tangent.to/ds";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { pivotPolls } from "./compositional.js";
+import { addMorphStages } from "./morphmap.js";
 import { PARTIES, repoData, LANG, LOCALE, partyLabel, formatNumber, formatPercent } from "./parties.js";
 // Every visible string, in the page's language (<html lang>).
 const T = {
@@ -31,6 +30,8 @@ const T = {
     date: "Date", intention: "Intention de vote",
     winProb: "Probabilité de victoire :",
     tileNote: (pc) => `Couleur : parti favori · intensité : probabilité de victoire · contour : parti poursuivant lorsque le favori est sous ${pc} %.`,
+    areaNote: "Surface : superficie de la circonscription. Couleur : parti favori · intensité : probabilité de victoire. Molette, pincement ou boutons + et − pour agrandir.",
+    electorsNote: (pc, year) => `Surface proportionnelle à l'électorat inscrit à l'élection de ${year}, chaque circonscription centrée sur sa tuile. Couleur : parti favori · intensité : probabilité de victoire · contour : parti poursuivant lorsque le favori est sous ${pc} %.`,
     region: {},
     watchHead: "<th>Circonscription</th><th>Favori</th><th>Poursuivant</th><th>Écart</th>",
     pt: "pt",
@@ -80,6 +81,8 @@ const T = {
     date: "Date", intention: "Voting intention",
     winProb: "Probability of winning:",
     tileNote: (pc) => `Colour: favourite party · intensity: probability of winning · outline: runner-up when the favourite is below ${pc}%.`,
+    areaNote: "Area: land area of the riding. Colour: favourite party · intensity: probability of winning. Scroll, pinch or use the + and − buttons to zoom.",
+    electorsNote: (pc, year) => `Area proportional to the registered electorate at the ${year} election, each riding centred on its tile. Colour: favourite party · intensity: probability of winning · outline: runner-up when the favourite is below ${pc}%.`,
     region: { "C.-B.": "B.C.", "Alb.": "Alta.", "Qc": "Que.", "Atlantique": "Atlantic", "Territoires": "Territories",
       "Île": "Island", "Vallée du Fraser": "Fraser Valley", "Intérieur": "Interior", "Nord": "North" },
     watchHead: "<th>Riding</th><th>Favourite</th><th>Runner-up</th><th>Gap</th>",
@@ -125,29 +128,32 @@ const CONFIGS = {
     files: Object.fromEntries(Object.entries({
       projection: "qc_projection.json", polls: "qc_national_polls.json",
       geojson: "qc_ridings_2026.geojson", leaders: "qc_leaders.json",
-      tiles: "qc_tile_layout.json",
+      tiles: "qc_tile_layout.json", electors: "qc_riding_electors.json",
     }).map(([k, f]) => [k, repoData("quebec") + f])),
     colors: PARTIES.qc.colors,
     previousElection: { date: "2026-10-05", label: "2026" },
+    electorsYear: 2026,
     gallagherRef: () => T.gallagherQc,
   },
   ca: {
     files: Object.fromEntries(Object.entries({
       projection: "ca_dashboard.json", polls: "ca_national_polls.json",
-      geojson: "ca_ridings_2023.geojson", tiles: "ca_tile_layout.json",
+      geojson: "ca_ridings_2023.geojson", tiles: "ca_tile_layout.json", electors: "ca_riding_electors.json",
     }).map(([k, f]) => [k, repoData("canada") + f])),
     colors: PARTIES.ca.colors,
     previousElection: { date: "2025-04-28", label: "2025" },
-    initialBounds: [[42, -128], [56, -55]],
+    electorsYear: 2025,
     gallagherRef: (meta) => T.gallagherCa(meta.gallagherPrevious),
   },
   bc: {
     files: Object.fromEntries(Object.entries({
       projection: "bc_dashboard.json", polls: "bc_national_polls.json",
       geojson: "bc_ridings_2023.geojson", tiles: "bc_tile_layout.json", results: "bc_results.json",
+      electors: "bc_riding_electors.json",
     }).map(([k, f]) => [k, repoData("bc") + f])),
     colors: PARTIES.bc.colors,
     previousElection: { date: "2024-10-19", label: "2024" },
+    electorsYear: 2024,
     gallagherRef: (meta) => T.gallagherBc(meta.gallagherPrevious),
     trendNote: (s) => T.trendNoteBc(s),
   },
@@ -197,10 +203,7 @@ const registry = {
   nameByCode: new Map(),
   ridingForecast: null,
   ridingBaseline: null,
-  mapLayersByCode: new Map(),
   watchlistRowsByCode: new Map(),
-  leafletMap: null,
-  defaultStyleByCode: new Map(),
   tileByCode: new Map(),
   tileSelFrame: null,
 };
@@ -214,24 +217,7 @@ function selectRiding(code, { zoom = true } = {}) {
   renderRidingDetail(code, name, entry, registry.ridingBaseline.sharesFor(code), registry.partyCodes,
     registry.winProbs?.[code] ?? null, registry.candidates?.[code] ?? null);
 
-  // Map: reset every layer to its default style, then highlight the
-  // selected one with a heavy black outline that stays until the next
-  // selection (not just on hover) -- a persistent "you clicked this" mark.
-  for (const [c, layer] of registry.mapLayersByCode) {
-    layer.setStyle(registry.defaultStyleByCode.get(c));
-  }
-  const selectedLayer = registry.mapLayersByCode.get(code);
-  if (selectedLayer) {
-    selectedLayer.setStyle({ weight: 3.5, color: "#000" });
-    selectedLayer.bringToFront();
-    selectedLayer
-      .bindPopup(`<strong>${name}</strong><br>${label(entry.winner)} ${formatPercent(entry.shares[entry.winner])}`)
-      .openPopup();
-    const geoVisible = !document.getElementById("riding-map")?.hidden;
-    if (zoom && geoVisible && registry.leafletMap) {
-      registry.leafletMap.fitBounds(selectedLayer.getBounds(), { maxZoom: 11 });
-    }
-  }
+  registry.morph?.setSelected(code, { zoom });
 
   // Tile cartogram: move the selection frame onto the chosen tile.
   const tile = registry.tileByCode.get(code);
@@ -447,6 +433,13 @@ function renderTileMap(layout, winProbs, ridingForecast) {
   // near their intended screen size whatever the map's scale (the federal
   // map is about four times wider than Quebec's).
   const unitsPerPx = ((x1 - x0) * U) / (host.clientWidth || 600);
+  // Layers: root (zoomed as a whole) holds the tiles and the region labels.
+  const root = document.createElementNS(svg.namespaceURI, "g");
+  const tilesLayer = document.createElementNS(svg.namespaceURI, "g");
+  const regionsLayer = document.createElementNS(svg.namespaceURI, "g");
+  root.append(tilesLayer, regionsLayer);
+  svg.appendChild(root);
+  const styleByCode = {}, centres = {};
 
   for (const [code, t] of Object.entries(tilesById)) {
     const probs = winProbs?.[code];
@@ -476,11 +469,14 @@ function renderTileMap(layout, winProbs, ridingForecast) {
         .map(([p, v]) => `${label(p)} ${formatPercent(v)}`).join("\n")}`
       : t.name;
     rect.appendChild(title);
+    styleByCode[code] = { fill: rect.getAttribute("fill"), fillOpacity: rect.getAttribute("fill-opacity"),
+      stroke: rect.getAttribute("stroke"), close: Boolean(close), title: title.textContent };
+    centres[code] = { x: t.x * U, y: t.y * U };
     rect.addEventListener("click", () => selectRiding(code, { zoom: false }));
     registry.tileByCode.set(code, rect);
     g.appendChild(rect);
 
-    if (!t.abbr) { svg.appendChild(g); continue; }
+    if (!t.abbr) { tilesLayer.appendChild(g); continue; }
     const tileText = document.createElementNS(svg.namespaceURI, "text");
     tileText.setAttribute("x", t.x * U);
     tileText.setAttribute("y", t.y * U + 5);
@@ -493,7 +489,7 @@ function renderTileMap(layout, winProbs, ridingForecast) {
     tileText.setAttribute("fill", pFav > 0.6 ? "#fff" : "#222");
     tileText.textContent = t.abbr;
     g.appendChild(tileText);
-    svg.appendChild(g);
+    tilesLayer.appendChild(g);
   }
 
   // Region labels on top (they sit in space the layout kept free): bearings,
@@ -508,7 +504,7 @@ function renderTileMap(layout, winProbs, ridingForecast) {
     lbl.setAttribute("letter-spacing", "0.08em");
     lbl.setAttribute("fill", "#8a8a8a");
     lbl.textContent = (T.region[r.label] ?? r.label).toUpperCase();
-    svg.appendChild(lbl);
+    regionsLayer.appendChild(lbl);
   }
 
   // Selection: a double HALO (white over black) drawn OUTSIDE the tile.
@@ -531,7 +527,7 @@ function renderTileMap(layout, winProbs, ridingForecast) {
   const haloOuter = mk("#000", 2.5 * k, 7 * k);
   const haloInner = mk("#fff", 2.5 * k, 4.5 * k);
   halo.setAttribute("hidden", "");
-  svg.appendChild(halo);
+  tilesLayer.appendChild(halo);
   registry.tileSelFrame = {
     setAttribute(name, value) {
       if (name === "hidden") { halo.setAttribute("hidden", value); return; }
@@ -551,53 +547,7 @@ function renderTileMap(layout, winProbs, ridingForecast) {
   note.textContent =
     T.tileNote(Math.round(CLOSE_RACE_P * 100));
   host.appendChild(note);
-}
-
-// ---- Riding map (Leaflet: pan/zoom, click-to-select) ------------------------
-
-function renderMap(geojson, ridingForecast) {
-  const container = document.getElementById("riding-map");
-
-  const map = L.map(container, { zoomControl: true, attributionControl: false });
-  registry.leafletMap = map;
-  // No base tile layer on purpose: this is a choropleth of riding results,
-  // not a street map, and it keeps the look black-and-white/minimalist
-  // instead of importing an OSM basemap's own styling.
-
-  const layer = L.geoJSON(geojson, {
-    style: (feature) => {
-      const code = normalizeRidingCode(feature.properties.riding_code);
-      const winner = ridingForecast.get(code)?.winner;
-      const style = { color: "#111", weight: 0.6, fillColor: PARTY_COLORS[winner] ?? "#ccc", fillOpacity: 0.85 };
-      registry.defaultStyleByCode.set(code, style);
-      return style;
-    },
-    onEachFeature: (feature, lyr) => {
-      const code = normalizeRidingCode(feature.properties.riding_code);
-      registry.mapLayersByCode.set(code, lyr);
-      lyr.on("click", () => selectRiding(code));
-      lyr.on("mouseover", () => {
-        if (registry.mapLayersByCode.get(code) !== lyr) return;
-        const current = lyr.options.weight;
-        if (current < 2) lyr.setStyle({ weight: 1.6 });
-      });
-      lyr.on("mouseout", () => {
-        const isSelected = lyr.options.weight >= 3;
-        if (!isSelected) lyr.setStyle(registry.defaultStyleByCode.get(code));
-      });
-    },
-  }).addTo(map);
-
-  // The container gets its height from a flex row, which the browser
-  // resolves after this runs -- Leaflet would otherwise compute its bounds
-  // against a provisional height and leave the province floating in dead
-  // space. Recompute once layout has settled, and again on resize.
-  // Web Mercator stretches the Arctic: the federal map opens on the
-  // populated south (where nearly every riding lies), the north one pan away.
-  const bounds = CFG.initialBounds ? L.latLngBounds(CFG.initialBounds) : layer.getBounds();
-  const fit = () => { map.invalidateSize(); map.fitBounds(bounds, { padding: [12, 12] }); };
-  requestAnimationFrame(fit);
-  new ResizeObserver(fit).observe(container);
+  return { svg, note, layers: { root, tiles: tilesLayer, regions: regionsLayer }, styleByCode, centres, side: SIDE };
 }
 
 // ---- Closest-ridings watchlist ----------------------------------------------
@@ -987,8 +937,8 @@ async function main() {
   // went from ~20s of GP fitting to rendering a JSON.
   const F = CFG.files;
   const opt = (path) => (path ? loadJSON(path).catch(() => null) : Promise.resolve(null));
-  const [projection, pollRows, geojson, leaders, tileLayout, results] = await Promise.all([
-    loadJSON(F.projection), loadJSON(F.polls), opt(F.geojson), opt(F.leaders), opt(F.tiles), opt(F.results),
+  const [projection, pollRows, geojson, leaders, tileLayout, results, electors] = await Promise.all([
+    loadJSON(F.projection), loadJSON(F.polls), opt(F.geojson), opt(F.leaders), opt(F.tiles), opt(F.results), opt(F.electors),
   ]);
 
   const { meta, partyCodes, trendSeries, totalSeats } = projection;
@@ -1039,30 +989,45 @@ async function main() {
     }
   });
 
-  if (tileLayout) section("tile-map", () => renderTileMap(tileLayout, projection.ridingWinProbs, ridingForecast));
+  let tileMap = null;
+  if (tileLayout) section("tile-map", () => { tileMap = renderTileMap(tileLayout, projection.ridingWinProbs, ridingForecast); });
 
-  // Tiles by default; the geographic map stays one click away. Leaflet
-  // CANNOT be initialised inside a hidden container (it computes its pixel
-  // size at init and gets zero -- the map then renders blank), so it is
-  // created lazily on the first switch, once the container is visible.
-  const btnTiles = document.getElementById("btn-tiles");
-  const btnGeo = document.getElementById("btn-geo");
-  const setMode = (tiles) => {
-    document.getElementById("tile-map").hidden = !tiles;
-    document.getElementById("riding-map").hidden = tiles;
-    btnTiles.classList.toggle("active", tiles);
-    btnGeo.classList.toggle("active", !tiles);
-    if (!tiles && !registry.leafletMap) {
-      section("riding-map", () => renderMap(geojson, ridingForecast));
-      // Late init: re-apply the current selection so the map opens in sync.
-      if (registry.selectedCode) selectRiding(registry.selectedCode, { zoom: false });
-    }
-  };
-  btnTiles.onclick = () => setMode(true);
-  btnGeo.onclick = () => setMode(false);
-  if (tileLayout) setMode(true);
-  else if (geojson) { document.getElementById("map-mode").hidden = true; setMode(false); }
-  else { drop("tile-map"); document.querySelector(".row.explore")?.classList.add("nomap"); }
+  // Area, electors and tiles stages in one SVG, when the page has the three buttons.
+  const stageButtons = ["btn-area", "btn-electors", "btn-tiles"].map((id) => document.getElementById(id));
+  if (tileMap && geojson && electors && stageButtons[1]) {
+    section("tile-map", () => {
+      const morph = addMorphStages({
+        svg: tileMap.svg, layers: tileMap.layers, geojson, electors, tiles: tileMap.centres, side: tileMap.side,
+        style: (code) => tileMap.styleByCode[code], codeOf: normalizeRidingCode,
+        onSelect: (code) => selectRiding(code, { zoom: false }),
+      });
+      registry.morph = morph;
+      const host = document.getElementById("tile-map");
+      const zoomBox = document.createElement("div");
+      zoomBox.className = "map-zoom";
+      for (const [txt, fn] of [["+", () => morph.zoomBy(2)], ["−", () => morph.zoomBy(0.5)], ["⟲", () => morph.resetZoom()]]) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = txt;
+        b.onclick = fn;
+        zoomBox.appendChild(b);
+      }
+      host.prepend(zoomBox);
+      const notes = [T.areaNote, T.electorsNote(Math.round(CLOSE_RACE_P * 100), CFG.electorsYear), T.tileNote(Math.round(CLOSE_RACE_P * 100))];
+      const setStage = (k) => {
+        stageButtons.forEach((b, i) => b.classList.toggle("active", i === k));
+        zoomBox.hidden = k !== 0;
+        tileMap.note.textContent = notes[k];
+        morph.goTo(k);
+      };
+      stageButtons.forEach((b, k) => { b.onclick = () => setStage(k); });
+      setStage(2);
+    });
+  }
+
+  // Without a tile layout there is no map; if the stages failed, the tiles stay alone.
+  if (!tileLayout) { drop("tile-map"); document.querySelector(".row.explore")?.classList.add("nomap"); }
+  else if (!registry.morph) document.getElementById("map-mode").hidden = true;
   section("watchlist", () => renderWatchlist(ridingForecast, partyCodes));
   if (leaders) section("leader-ridings", () => renderLeaderRidings(leaders, partyCodes));
   section("seat-bar", () =>

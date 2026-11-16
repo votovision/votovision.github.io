@@ -3,7 +3,7 @@ export const DASHBOARD = {
   fr: {
     trend: "Tendance des intentions de vote",
     forecast: (map) => `Prévision par circonscription (carte ${map})`,
-    tiles: "Tuiles", geo: "Carte géographique",
+    tiles: "Tuiles", area: "Géographie", electors: "Électorat",
     selected: "Circonscription sélectionnée",
     closest: "Circonscriptions les plus serrées",
     closestNote: "Circonscriptions classées par écart prévu entre le favori et son poursuivant. La sélection d'une ligne ou d'une case de la carte met à jour la fiche.",
@@ -16,7 +16,7 @@ export const DASHBOARD = {
   en: {
     trend: "Trend in voting intentions",
     forecast: (map) => `Forecast by riding (${map} map)`,
-    tiles: "Tiles", geo: "Geographic map",
+    tiles: "Tiles", area: "Geography", electors: "Electorate",
     selected: "Selected riding",
     closest: "Closest races",
     closestNote: "Ridings ranked by forecast gap between the favourite and the runner-up. Selecting a row or a map cell updates the riding panel.",

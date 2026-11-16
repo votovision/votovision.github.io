@@ -55,8 +55,6 @@ section.flash { animation: flash-bg 0.9s ease; }
 @keyframes flash-bg { 0% { background: var(--hover); } 100% { background: var(--surface); } }
 @media (prefers-reduced-motion: reduce) { section.flash { animation: none; } }
 
-#riding-map { flex: 1; min-height: 620px; background: var(--surface); }
-.leaflet-container { background: var(--surface); font-family: var(--sans); }
 .range-controls { margin-bottom: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .range-controls button {
   font-family: var(--sans);
@@ -76,6 +74,15 @@ section.flash { animation: flash-bg 0.9s ease; }
 #tile-map svg { width: 100%; height: auto; display: block; }
 #tile-map .tile { cursor: pointer; }
 #tile-map text { pointer-events: none; font-family: var(--sans); }
+#tile-map { position: relative; }
+#tile-map .map-zoom { position: absolute; top: 0.4rem; left: 0.4rem; display: flex; flex-direction: column; gap: 2px; z-index: 1; }
+#tile-map .map-zoom[hidden] { display: none; }
+#tile-map .map-zoom button {
+  width: 1.9rem; height: 1.9rem; padding: 0; font: 600 1rem var(--sans);
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--heading); cursor: pointer;
+}
+#tile-map .map-zoom button:hover { border-color: var(--heading); }
+#tile-map svg { overflow: hidden; }
 
 /* Observable Plot sets 10px on the root svg: a readable base size in the
    interface face; sizes set per mark are kept. */
@@ -94,7 +101,6 @@ th { font-weight: 500; color: var(--muted); font-size: 0.75rem; }
    riding panel and lists go underneath, side by side. */
 body[data-election="ca"] .row.explore { grid-template-columns: 1fr; }
 body[data-election="ca"] .row.explore .side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem; }
-body[data-election="ca"] #riding-map { min-height: 560px; }
 @media (max-width: 900px) { body[data-election="ca"] .row.explore .side { grid-template-columns: 1fr; } }
 .row.explore.nomap .side { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 @media (max-width: 1100px) { .row.explore.nomap .side { grid-template-columns: 1fr; } }

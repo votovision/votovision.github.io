@@ -14,11 +14,11 @@ const T = DASHBOARD[lang];
 <div class="row explore">
   <section><h2>{T.forecast("2023")}</h2>
     <div class="range-controls" id="map-mode">
+      <button id="btn-area">{T.area}</button>
+      <button id="btn-electors">{T.electors}</button>
       <button id="btn-tiles">{T.tiles}</button>
-      <button id="btn-geo">{T.geo}</button>
     </div>
     <div id="tile-map"></div>
-    <div id="riding-map" hidden></div>
   </section>
   <div class="side">
     <section><h2>{T.selected}</h2><div id="riding-detail"></div></section>

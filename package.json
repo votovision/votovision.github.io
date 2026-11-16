@@ -17,7 +17,10 @@
     "@observablehq/plot": "^0.6.17",
     "@tangent.to/ds": "^0.16.0",
     "astro": "^7.3.8",
-    "leaflet": "^1.9.4"
+    "d3-geo": "^3.1.2",
+    "d3-selection": "^3.0.1",
+    "d3-transition": "^3.0.2",
+    "d3-zoom": "^3.0.1"
   },
   "description": "Votovision site: election projections and posts",
   "license": "GPL-3.0-only",
